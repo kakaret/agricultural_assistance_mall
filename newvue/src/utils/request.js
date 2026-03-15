@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { Message } from 'element-ui'
+import { Message, Loading } from 'element-ui'
 import store from '@/store'
 import router from '@/router'
 
@@ -8,6 +8,38 @@ const service = axios.create({
     baseURL: process.env.VUE_APP_BASE_API || '/api',
     timeout: 15000
 })
+
+// Track loading instances for multiple concurrent requests
+let loadingInstance = null
+let activeRequests = 0
+
+/**
+ * Show global loading
+ */
+function showLoading() {
+    if (activeRequests === 0) {
+        loadingInstance = Loading.service({
+            lock: true,
+            text: '加载中...',
+            spinner: 'el-icon-loading',
+            background: 'rgba(255, 255, 255, 0.7)'
+        })
+    }
+    activeRequests++
+}
+
+/**
+ * Hide global loading
+ */
+function hideLoading() {
+    if (activeRequests > 0) {
+        activeRequests--
+    }
+    if (activeRequests === 0 && loadingInstance) {
+        loadingInstance.close()
+        loadingInstance = null
+    }
+}
 
 // Request interceptor
 service.interceptors.request.use(
@@ -20,10 +52,20 @@ service.interceptors.request.use(
         // Add request start time for performance monitoring
         config.metadata = { startTime: performance.now() }
 
+        // Show loading for mutations (POST, PUT, DELETE) and slow GET requests
+        const isMutation = ['post', 'put', 'delete', 'patch'].includes(config.method?.toLowerCase())
+        const shouldShowLoading = config.showLoading !== false && (isMutation || config.showLoading === true)
+
+        if (shouldShowLoading) {
+            showLoading()
+            config._showLoading = true
+        }
+
         return config
     },
     error => {
         console.error('Request error:', error)
+        hideLoading()
         return Promise.reject(error)
     }
 )
@@ -31,6 +73,11 @@ service.interceptors.request.use(
 // Response interceptor
 service.interceptors.response.use(
     response => {
+        // Hide loading if it was shown
+        if (response.config._showLoading) {
+            hideLoading()
+        }
+
         // Log API performance in development
         if (process.env.NODE_ENV === 'development' && response.config.metadata) {
             const duration = performance.now() - response.config.metadata.startTime
@@ -43,6 +90,11 @@ service.interceptors.response.use(
         return response.data
     },
     error => {
+        // Hide loading if it was shown
+        if (error.config?._showLoading) {
+            hideLoading()
+        }
+
         console.error('Response error:', error)
 
         if (error.response) {

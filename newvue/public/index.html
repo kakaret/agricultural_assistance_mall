@@ -4,17 +4,149 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <!-- Responsive viewport meta -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <!-- Primary SEO Meta Tags -->
+    <title>农产品销售系统 - 新鲜优质的农产品电商平台</title>
+    <meta name="description" content="农产品销售系统提供新鲜优质的水果、蔬菜、粮油等农产品在线购买服务。支持在线下单、配送到家，让您享受便捷的农产品购物体验。">
+    <meta name="keywords" content="农产品,水果,蔬菜,粮油,生鲜,电商平台,在线购物,农产品销售">
+    <meta name="author" content="农产品销售系统">
+    <meta name="robots" content="index, follow">
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="<%= BASE_URL %>">
+
+    <!-- Favicon -->
     <link rel="icon" href="<%= BASE_URL %>favicon.ico">
-    <title>农产品销售系统</title>
+    <link rel="apple-touch-icon" href="<%= BASE_URL %>apple-touch-icon.png">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<%= BASE_URL %>">
+    <meta property="og:title" content="农产品销售系统 - 新鲜优质的农产品电商平台">
+    <meta property="og:description" content="农产品销售系统提供新鲜优质的水果、蔬菜、粮油等农产品在线购买服务。支持在线下单、配送到家，让您享受便捷的农产品购物体验。">
+    <meta property="og:image" content="<%= BASE_URL %>og-image.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="<%= BASE_URL %>">
+    <meta property="twitter:title" content="农产品销售系统 - 新鲜优质的农产品电商平台">
+    <meta property="twitter:description" content="农产品销售系统提供新鲜优质的水果、蔬菜、粮油等农产品在线购买服务。支持在线下单、配送到家，让您享受便捷的农产品购物体验。">
+    <meta property="twitter:image" content="<%= BASE_URL %>og-image.png">
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#67C23A">
+    <meta name="msapplication-TileColor" content="#67C23A">
+
+    <!-- Mobile Web App -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="农产品销售">
+
+    <!-- Preconnect to API domain for faster requests -->
+    <link rel="preconnect" href="http://localhost:8080">
+    <link rel="dns-prefetch" href="http://localhost:8080">
+
+    <!-- Critical CSS for initial render -->
+    <style>
+        /* Critical styles for initial render */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-color: #f5f7fa;
+        }
+
+        /* Loading spinner styles */
+        #app-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            z-index: 9999;
+            transition: opacity 0.3s ease;
+        }
+
+        #app-loading.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e4e8ec;
+            border-top-color: #67C23A;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            color: #606266;
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* App container */
+        #app {
+            min-height: 100%;
+        }
+    </style>
 </head>
 
 <body>
+    <!-- Noscript warning -->
     <noscript>
-        <strong>We're sorry but this application doesn't work properly without JavaScript enabled. Please enable it to
-            continue.</strong>
+        <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+            <strong>抱歉，本应用需要启用 JavaScript 才能正常运行。请启用 JavaScript 后继续。</strong>
+        </div>
     </noscript>
+
+    <!-- Initial loading screen -->
+    <div id="app-loading">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">加载中...</p>
+    </div>
+
+    <!-- Vue app mount point -->
     <div id="app"></div>
+
+    <!-- Remove loading screen when app is ready -->
+    <script>
+        window.addEventListener('load', function() {
+            // Hide loading screen after app is mounted
+            setTimeout(function() {
+                var loading = document.getElementById('app-loading');
+                if (loading) {
+                    loading.classList.add('hidden');
+                    setTimeout(function() {
+                        loading.style.display = 'none';
+                    }, 300);
+                }
+            }, 500);
+        });
+    </script>
+
     <!-- built files will be auto injected -->
 </body>
 

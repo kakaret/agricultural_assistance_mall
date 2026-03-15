@@ -209,3 +209,83 @@ export function validateUrl(rule, value, callback) {
         callback(new Error('请输入正确的URL地址'))
     }
 }
+
+// ============================================
+// Synchronous validation functions for testing
+// ============================================
+
+/**
+ * Check if username is valid
+ * @param {string} username - Username to validate
+ * @returns {boolean} True if valid
+ */
+export function isValidUsername(username) {
+    if (!username || typeof username !== 'string') return false
+    if (username.length < 3 || username.length > 20) return false
+    return /^[a-zA-Z0-9_]+$/.test(username)
+}
+
+/**
+ * Check if password is valid
+ * @param {string} password - Password to validate
+ * @returns {boolean} True if valid
+ */
+export function isValidPassword(password) {
+    if (!password || typeof password !== 'string') return false
+    return password.length >= 6 && password.length <= 20
+}
+
+/**
+ * Check if email is valid
+ * @param {string} email - Email to validate
+ * @returns {boolean} True if valid
+ */
+export function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+}
+
+/**
+ * Check if phone number is valid
+ * @param {string} phone - Phone number to validate
+ * @returns {boolean} True if valid
+ */
+export function isValidPhone(phone) {
+    if (!phone || typeof phone !== 'string') return false
+    return /^1[3-9]\d{9}$/.test(phone)
+}
+
+/**
+ * Check if value is required
+ * @param {*} value - Value to check
+ * @returns {boolean} True if value exists
+ */
+export function isRequired(value) {
+    if (value === null || value === undefined) return false
+    if (typeof value === 'string') return value.trim().length > 0
+    return true
+}
+
+/**
+ * Create a minimum length validator
+ * @param {number} min - Minimum length
+ * @returns {Function} Validator function
+ */
+export function minLength(min) {
+    return function(value) {
+        if (!value || typeof value !== 'string') return false
+        return value.length >= min
+    }
+}
+
+/**
+ * Create a maximum length validator
+ * @param {number} max - Maximum length
+ * @returns {Function} Validator function
+ */
+export function maxLength(max) {
+    return function(value) {
+        if (!value || typeof value !== 'string') return true
+        return value.length <= max
+    }
+}
