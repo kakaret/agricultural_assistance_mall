@@ -41,8 +41,8 @@
         <el-table-column label="商品图片" width="100" align="center">
           <template slot-scope="{ row }">
             <el-image
-              :src="row.imageUrl"
-              :preview-src-list="[row.imageUrl]"
+              :src="getFullImageUrl(row.imageUrl)"
+              :preview-src-list="[getFullImageUrl(row.imageUrl)]"
               fit="cover"
               style="width: 60px; height: 60px; border-radius: 4px"
             ></el-image>
@@ -96,18 +96,18 @@
     <el-dialog
       title="入库"
       :visible.sync="stockInDialogVisible"
-      width="500px"
-      @close="resetStockForm"
+      width="560px"
+      @close="resetStockInForm"
     >
       <el-form
         ref="stockInForm"
-        :model="stockForm"
-        :rules="stockRules"
+        :model="stockInForm"
+        :rules="stockInRules"
         label-width="100px"
       >
         <el-form-item label="商品" prop="productId">
           <el-select
-            v-model="stockForm.productId"
+            v-model="stockInForm.productId"
             placeholder="请选择商品"
             filterable
             style="width: 100%"
@@ -128,20 +128,49 @@
         
         <el-form-item label="入库数量" prop="quantity">
           <el-input-number
-            v-model="stockForm.quantity"
+            v-model="stockInForm.quantity"
             :min="1"
             :max="10000"
             style="width: 100%"
           ></el-input-number>
         </el-form-item>
         
-        <el-form-item label="操作人" prop="operator">
-          <el-input v-model="stockForm.operator" placeholder="请输入操作人"></el-input>
+        <el-form-item label="单价(元)" prop="unitPrice">
+          <el-input-number
+            v-model="stockInForm.unitPrice"
+            :min="0.01"
+            :precision="2"
+            :step="1"
+            style="width: 100%"
+          ></el-input-number>
+        </el-form-item>
+        
+        <el-form-item label="供应商">
+          <el-input v-model="stockInForm.supplier" placeholder="请输入供应商（可选）"></el-input>
+        </el-form-item>
+        
+        <el-form-item label="入库日期" prop="stockDate">
+          <el-date-picker
+            v-model="stockInForm.stockDate"
+            type="date"
+            placeholder="请选择入库日期"
+            value-format="yyyy-MM-dd"
+            style="width: 100%"
+          ></el-date-picker>
+        </el-form-item>
+        
+        <el-form-item label="操作人ID" prop="operatorId">
+          <el-input-number
+            v-model="stockInForm.operatorId"
+            :min="1"
+            placeholder="请输入操作人ID"
+            style="width: 100%"
+          ></el-input-number>
         </el-form-item>
         
         <el-form-item label="备注">
           <el-input
-            v-model="stockForm.remark"
+            v-model="stockInForm.remark"
             type="textarea"
             :rows="3"
             placeholder="请输入备注信息（可选）"
@@ -161,18 +190,18 @@
     <el-dialog
       title="出库"
       :visible.sync="stockOutDialogVisible"
-      width="500px"
-      @close="resetStockForm"
+      width="560px"
+      @close="resetStockOutForm"
     >
       <el-form
         ref="stockOutForm"
-        :model="stockForm"
-        :rules="stockRules"
+        :model="stockOutForm"
+        :rules="stockOutRules"
         label-width="100px"
       >
         <el-form-item label="商品" prop="productId">
           <el-select
-            v-model="stockForm.productId"
+            v-model="stockOutForm.productId"
             placeholder="请选择商品"
             filterable
             style="width: 100%"
@@ -193,20 +222,44 @@
         
         <el-form-item label="出库数量" prop="quantity">
           <el-input-number
-            v-model="stockForm.quantity"
+            v-model="stockOutForm.quantity"
             :min="1"
             :max="getMaxStockOut()"
             style="width: 100%"
           ></el-input-number>
         </el-form-item>
         
-        <el-form-item label="操作人" prop="operator">
-          <el-input v-model="stockForm.operator" placeholder="请输入操作人"></el-input>
+        <el-form-item label="单价(元)" prop="unitPrice">
+          <el-input-number
+            v-model="stockOutForm.unitPrice"
+            :min="0.01"
+            :precision="2"
+            :step="1"
+            style="width: 100%"
+          ></el-input-number>
+        </el-form-item>
+        
+        <el-form-item label="出库类型" prop="type">
+          <el-select v-model="stockOutForm.type" placeholder="请选择出库类型" style="width: 100%">
+            <el-option :value="1" label="销售出库"></el-option>
+            <el-option :value="2" label="退货出库"></el-option>
+            <el-option :value="3" label="报损出库"></el-option>
+            <el-option :value="4" label="其他"></el-option>
+          </el-select>
+        </el-form-item>
+        
+        <el-form-item label="操作人ID" prop="operatorId">
+          <el-input-number
+            v-model="stockOutForm.operatorId"
+            :min="1"
+            placeholder="请输入操作人ID"
+            style="width: 100%"
+          ></el-input-number>
         </el-form-item>
         
         <el-form-item label="备注">
           <el-input
-            v-model="stockForm.remark"
+            v-model="stockOutForm.remark"
             type="textarea"
             :rows="3"
             placeholder="请输入备注信息（可选）"
@@ -224,9 +277,9 @@
     
     <!-- Stock History Dialog -->
     <el-dialog
-      :title="`${currentProduct?.name || ''} - 操作记录`"
+      :title="`${currentProduct ? currentProduct.name : ''} - 操作记录`"
       :visible.sync="historyDialogVisible"
-      width="900px"
+      width="950px"
     >
       <el-table
         :data="historyRecords"
@@ -235,7 +288,7 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="id" label="记录ID" width="100" align="center"></el-table-column>
+        <el-table-column prop="id" label="记录ID" width="80" align="center"></el-table-column>
         
         <el-table-column label="操作类型" width="100" align="center">
           <template slot-scope="{ row }">
@@ -253,15 +306,31 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="stockBefore" label="操作前库存" width="120" align="center"></el-table-column>
+        <el-table-column label="单价" width="100" align="center">
+          <template slot-scope="{ row }">
+            ¥{{ row.unitPrice != null ? Number(row.unitPrice).toFixed(2) : '-' }}
+          </template>
+        </el-table-column>
         
-        <el-table-column prop="stockAfter" label="操作后库存" width="120" align="center"></el-table-column>
+        <el-table-column label="总价" width="110" align="center">
+          <template slot-scope="{ row }">
+            ¥{{ row.totalPrice != null ? Number(row.totalPrice).toFixed(2) : '-' }}
+          </template>
+        </el-table-column>
         
-        <el-table-column prop="operator" label="操作人" width="120" align="center"></el-table-column>
+        <el-table-column prop="operatorName" label="操作人" width="100" align="center"></el-table-column>
         
-        <el-table-column prop="remark" label="备注" min-width="150"></el-table-column>
+        <el-table-column label="状态" width="80" align="center">
+          <template slot-scope="{ row }">
+            <el-tag :type="row.status === 1 ? 'success' : 'info'" size="mini">
+              {{ row.status === 1 ? '正常' : '已作废' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         
-        <el-table-column label="操作时间" width="180">
+        <el-table-column prop="remark" label="备注" min-width="120" show-overflow-tooltip></el-table-column>
+        
+        <el-table-column label="操作时间" width="170">
           <template slot-scope="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
@@ -285,6 +354,7 @@
 import { getProducts } from '@/api/product'
 import { stockIn, stockOut, getStockHistory } from '@/api/stock'
 import { formatDate } from '@/utils/date'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'StockManagement',
@@ -304,21 +374,59 @@ export default {
       historyDialogVisible: false,
       
       submitting: false,
-      stockForm: {
+      
+      // 入库表单（与后端 StockIn 实体对齐）
+      stockInForm: {
         productId: null,
         quantity: 1,
-        operator: '',
+        unitPrice: null,
+        supplier: '',
+        stockDate: '',
+        operatorId: null,
         remark: ''
       },
-      stockRules: {
+      stockInRules: {
         productId: [
           { required: true, message: '请选择商品', trigger: 'change' }
         ],
         quantity: [
-          { required: true, message: '请输入数量', trigger: 'blur' }
+          { required: true, message: '请输入入库数量', trigger: 'blur' }
         ],
-        operator: [
-          { required: true, message: '请输入操作人', trigger: 'blur' }
+        unitPrice: [
+          { required: true, message: '请输入单价', trigger: 'blur' }
+        ],
+        stockDate: [
+          { required: true, message: '请选择入库日期', trigger: 'change' }
+        ],
+        operatorId: [
+          { required: true, message: '请输入操作人ID', trigger: 'blur' }
+        ]
+      },
+      
+      // 出库表单（与后端 StockOut 实体对齐）
+      stockOutForm: {
+        productId: null,
+        quantity: 1,
+        unitPrice: null,
+        type: null,
+        operatorId: null,
+        remark: ''
+      },
+      stockOutRules: {
+        productId: [
+          { required: true, message: '请选择商品', trigger: 'change' }
+        ],
+        quantity: [
+          { required: true, message: '请输入出库数量', trigger: 'blur' }
+        ],
+        unitPrice: [
+          { required: true, message: '请输入单价', trigger: 'blur' }
+        ],
+        type: [
+          { required: true, message: '请选择出库类型', trigger: 'change' }
+        ],
+        operatorId: [
+          { required: true, message: '请输入操作人ID', trigger: 'blur' }
         ]
       },
       
@@ -338,6 +446,10 @@ export default {
   
   methods: {
     formatDate,
+    
+    getFullImageUrl(url) {
+      return getImageUrl(url)
+    },
     
     async loadProducts() {
       this.loading = true
@@ -412,11 +524,15 @@ export default {
         this.submitting = true
         
         try {
-          await stockIn(this.stockForm)
-          this.$message.success('入库成功')
-          this.stockInDialogVisible = false
-          this.loadProducts()
-          this.loadAllProducts()
+          const res = await stockIn(this.stockInForm)
+          if (res.code === '0') {
+            this.$message.success('入库成功')
+            this.stockInDialogVisible = false
+            this.loadProducts()
+            this.loadAllProducts()
+          } else {
+            this.$message.error(res.msg || '入库失败')
+          }
         } catch (error) {
           console.error('Stock in failed:', error)
           this.$message.error('入库失败')
@@ -431,8 +547,8 @@ export default {
         if (!valid) return
         
         // Validate stock availability
-        const selectedProduct = this.allProducts.find(p => p.id === this.stockForm.productId)
-        if (selectedProduct && this.stockForm.quantity > selectedProduct.stock) {
+        const selectedProduct = this.allProducts.find(p => p.id === this.stockOutForm.productId)
+        if (selectedProduct && this.stockOutForm.quantity > selectedProduct.stock) {
           this.$message.error('出库数量不能大于当前库存')
           return
         }
@@ -440,11 +556,15 @@ export default {
         this.submitting = true
         
         try {
-          await stockOut(this.stockForm)
-          this.$message.success('出库成功')
-          this.stockOutDialogVisible = false
-          this.loadProducts()
-          this.loadAllProducts()
+          const res = await stockOut(this.stockOutForm)
+          if (res.code === '0') {
+            this.$message.success('出库成功')
+            this.stockOutDialogVisible = false
+            this.loadProducts()
+            this.loadAllProducts()
+          } else {
+            this.$message.error(res.msg || '出库失败')
+          }
         } catch (error) {
           console.error('Stock out failed:', error)
           this.$message.error('出库失败')
@@ -488,16 +608,29 @@ export default {
       this.loadHistory()
     },
     
-    resetStockForm() {
-      this.stockForm = {
+    resetStockInForm() {
+      this.stockInForm = {
         productId: null,
         quantity: 1,
-        operator: '',
+        unitPrice: null,
+        supplier: '',
+        stockDate: '',
+        operatorId: null,
         remark: ''
       }
-      
       if (this.$refs.stockInForm) {
         this.$refs.stockInForm.clearValidate()
+      }
+    },
+    
+    resetStockOutForm() {
+      this.stockOutForm = {
+        productId: null,
+        quantity: 1,
+        unitPrice: null,
+        type: null,
+        operatorId: null,
+        remark: ''
       }
       if (this.$refs.stockOutForm) {
         this.$refs.stockOutForm.clearValidate()
@@ -512,8 +645,8 @@ export default {
     },
     
     getMaxStockOut() {
-      if (!this.stockForm.productId) return 10000
-      const product = this.allProducts.find(p => p.id === this.stockForm.productId)
+      if (!this.stockOutForm.productId) return 10000
+      const product = this.allProducts.find(p => p.id === this.stockOutForm.productId)
       return product ? product.stock : 10000
     }
   }

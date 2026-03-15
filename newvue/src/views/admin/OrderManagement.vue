@@ -208,8 +208,12 @@ export default {
       try {
         const params = {
           currentPage: this.currentPage,
-          size: this.pageSize,
-          keyword: this.searchKeyword
+          size: this.pageSize
+        }
+        
+        // 后端支持按 id 搜索，不支持 keyword
+        if (this.searchKeyword) {
+          params.id = this.searchKeyword
         }
         
         if (this.activeStatus !== 'all') {

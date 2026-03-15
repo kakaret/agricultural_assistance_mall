@@ -24,8 +24,8 @@
       
       <template #image="{ row }">
         <el-image
-          :src="row.imageUrl"
-          :preview-src-list="[row.imageUrl]"
+          :src="getFullImageUrl(row.imageUrl)"
+          :preview-src-list="[getFullImageUrl(row.imageUrl)]"
           fit="cover"
           style="width: 60px; height: 60px; border-radius: 4px"
         ></el-image>
@@ -151,6 +151,7 @@
 import DataTable from '@/components/admin/DataTable.vue'
 import ImageUploader from '@/components/common/ImageUploader.vue'
 import { getProducts, createProduct, updateProduct, deleteProduct, getCategories } from '@/api/product'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'ProductManagement',
@@ -227,6 +228,10 @@ export default {
   },
   
   methods: {
+    getFullImageUrl(url) {
+      return getImageUrl(url)
+    },
+    
     async loadProducts() {
       this.loading = true
       try {

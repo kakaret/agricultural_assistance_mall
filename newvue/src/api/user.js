@@ -89,13 +89,14 @@ export function getUsers(params) {
 
 /**
  * Update user status (admin)
+ * 后端没有独立的 /{id}/status 接口，使用 PUT /user/{id} 通用更新
  * @param {number} id - User ID
  * @param {number} status - Status value
  * @returns {Promise}
  */
 export function updateUserStatus(id, status) {
     return request({
-        url: `/user/${id}/status`,
+        url: `/user/${id}`,
         method: 'put',
         data: { status }
     })
@@ -103,13 +104,14 @@ export function updateUserStatus(id, status) {
 
 /**
  * Update user role (admin)
+ * 后端没有独立的 /{id}/role 接口，使用 PUT /user/{id} 通用更新
  * @param {number} id - User ID
  * @param {string} role - Role value
  * @returns {Promise}
  */
 export function updateUserRole(id, role) {
     return request({
-        url: `/user/${id}/role`,
+        url: `/user/${id}`,
         method: 'put',
         data: { role }
     })

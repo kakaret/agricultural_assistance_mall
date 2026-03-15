@@ -22,19 +22,11 @@
         </el-button>
       </template>
       
-      <template #type="{ row }">
-        <el-tag :type="getTypeColor(row.type)" size="small">
-          {{ getTypeText(row.type) }}
+      <template #tags="{ row }">
+        <el-tag v-if="row.tags" :type="getTagColor(row.tags)" size="small">
+          {{ row.tags }}
         </el-tag>
-      </template>
-      
-      <template #status="{ row }">
-        <el-switch
-          v-model="row.status"
-          :active-value="1"
-          :inactive-value="0"
-          @change="handleStatusChange(row)"
-        ></el-switch>
+        <span v-else style="color: #909399">-</span>
       </template>
     </DataTable>
     
@@ -55,11 +47,12 @@
           <el-input v-model="noticeForm.title" placeholder="请输入公告标题"></el-input>
         </el-form-item>
         
-        <el-form-item label="公告类型" prop="type">
-          <el-select v-model="noticeForm.type" placeholder="请选择公告类型" style="width: 100%">
-            <el-option label="通知" value="INFO"></el-option>
-            <el-option label="警告" value="WARNING"></el-option>
-            <el-option label="紧急" value="URGENT"></el-option>
+        <el-form-item label="公告标签">
+          <el-select v-model="noticeForm.tags" placeholder="请选择公告标签（可选）" clearable style="width: 100%">
+            <el-option label="通知" value="通知"></el-option>
+            <el-option label="警告" value="警告"></el-option>
+            <el-option label="紧急" value="紧急"></el-option>
+            <el-option label="活动" value="活动"></el-option>
           </el-select>
         </el-form-item>
         
@@ -70,13 +63,6 @@
             :rows="8"
             placeholder="请输入公告内容"
           ></el-input>
-        </el-form-item>
-        
-        <el-form-item label="公告状态">
-          <el-radio-group v-model="noticeForm.status">
-            <el-radio :label="1">发布</el-radio>
-            <el-radio :label="0">草稿</el-radio>
-          </el-radio-group>
         </el-form-item>
       </el-form>
       
@@ -93,7 +79,6 @@
 <script>
 import DataTable from '@/components/admin/DataTable.vue'
 import { getAllNotices, createNotice, updateNotice, deleteNotice } from '@/api/notice'
-import { formatDate } from '@/utils/date'
 
 export default {
   name: 'NoticeManagement',
@@ -116,16 +101,12 @@ export default {
       noticeForm: {
         id: null,
         title: '',
-        type: 'INFO',
-        content: '',
-        status: 1
+        tags: '',
+        content: ''
       },
       noticeRules: {
         title: [
           { required: true, message: '请输入公告标题', trigger: 'blur' }
-        ],
-        type: [
-          { required: true, message: '请选择公告类型', trigger: 'change' }
         ],
         content: [
           { required: true, message: '请输入公告内容', trigger: 'blur' }
@@ -134,21 +115,20 @@ export default {
       columns: [
         { prop: 'id', label: 'ID', width: '80' },
         { prop: 'title', label: '公告标题', minWidth: '200' },
-        { prop: 'type', label: '类型', width: '100', align: 'center', slot: 'type' },
+        { prop: 'tags', label: '标签', width: '100', align: 'center', slot: 'tags' },
         { 
           prop: 'content', 
           label: '内容', 
           minWidth: '250',
           formatter: (row) => {
-            return row.content.length > 50 ? row.content.substring(0, 50) + '...' : row.content
+            const content = row.content || ''
+            return content.length > 50 ? content.substring(0, 50) + '...' : content
           }
         },
-        { prop: 'status', label: '状态', width: '100', align: 'center', slot: 'status' },
         { 
-          prop: 'createdAt', 
+          prop: 'time', 
           label: '创建时间', 
-          width: '180',
-          formatter: (row) => this.formatDate(row.createdAt)
+          width: '180'
         }
       ]
     }
@@ -165,8 +145,6 @@ export default {
   },
   
   methods: {
-    formatDate,
-    
     async loadNotices() {
       this.loading = true
       try {
@@ -221,9 +199,8 @@ export default {
       this.noticeForm = {
         id: row.id,
         title: row.title,
-        type: row.type,
-        content: row.content,
-        status: row.status
+        tags: row.tags || '',
+        content: row.content
       }
       this.dialogVisible = true
     },
@@ -244,17 +221,6 @@ export default {
           console.error('Delete notice failed:', error)
           this.$message.error('删除失败')
         }
-      }
-    },
-    
-    async handleStatusChange(row) {
-      try {
-        await updateNotice(row.id, { status: row.status })
-        this.$message.success('状态更新成功')
-      } catch (error) {
-        console.error('Update status failed:', error)
-        this.$message.error('状态更新失败')
-        row.status = row.status === 1 ? 0 : 1
       }
     },
     
@@ -290,31 +256,22 @@ export default {
       this.noticeForm = {
         id: null,
         title: '',
-        type: 'INFO',
-        content: '',
-        status: 1
+        tags: '',
+        content: ''
       }
       if (this.$refs.noticeForm) {
         this.$refs.noticeForm.clearValidate()
       }
     },
     
-    getTypeText(type) {
-      const typeMap = {
-        'INFO': '通知',
-        'WARNING': '警告',
-        'URGENT': '紧急'
-      }
-      return typeMap[type] || type
-    },
-    
-    getTypeColor(type) {
+    getTagColor(tags) {
       const colorMap = {
-        'INFO': 'primary',
-        'WARNING': 'warning',
-        'URGENT': 'danger'
+        '通知': 'primary',
+        '警告': 'warning',
+        '紧急': 'danger',
+        '活动': 'success'
       }
-      return colorMap[type] || 'info'
+      return colorMap[tags] || 'info'
     }
   }
 }

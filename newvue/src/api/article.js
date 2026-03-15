@@ -77,14 +77,33 @@ export function incrementViewCount(id) {
 }
 
 /**
+ * Get all articles with pagination (admin)
+ * 后端参数为 title（非 keyword），需要做映射
+ * @param {Object} params - Query parameters {currentPage, size, keyword}
+ * @returns {Promise}
+ */
+export function getAllArticles(params) {
+    const { keyword, ...rest } = params || {}
+    return request({
+        url: '/article/page',
+        method: 'get',
+        params: {
+            ...rest,
+            title: keyword || ''
+        }
+    })
+}
+
+/**
  * Get featured articles
+ * 后端暂无此接口，使用 /article/page 带 status=1 替代
  * @param {number} limit - Number of articles to return
  * @returns {Promise}
  */
 export function getFeaturedArticles(limit = 5) {
     return request({
-        url: '/article/featured',
+        url: '/article/page',
         method: 'get',
-        params: { limit }
+        params: { size: limit, status: 1 }
     })
 }

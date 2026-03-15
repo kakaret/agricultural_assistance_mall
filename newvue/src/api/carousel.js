@@ -77,14 +77,15 @@ export function getAllCarousels(params) {
 
 /**
  * Update carousel sort order (admin)
+ * 后端没有独立的 /{id}/sort 接口，使用 PUT /carousel/{id} 通用更新
  * @param {number} id - Carousel ID
  * @param {number} sort - Sort order
  * @returns {Promise}
  */
-export function updateCarouselSort(id, sort) {
+export function updateCarouselSort(id, sortOrder) {
     return request({
-        url: `/carousel/${id}/sort`,
+        url: `/carousel/${id}`,
         method: 'put',
-        data: { sort }
+        data: { sortOrder }
     })
 }

@@ -17,7 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
+import java.sql.Timestamp;
+import java.util.*;
 
 @Service
 public class StockService {
@@ -34,6 +35,88 @@ public class StockService {
 
     @Autowired
     private UserMapper userMapper;
+
+    /**
+     * 获取某商品的操作历史（合并入库+出库记录），按时间倒序、手动分页返回
+     */
+    public Map<String, Object> getProductStockHistory(Long productId, Integer currentPage, Integer size) {
+        // 查询该商品的所有入库记录
+        LambdaQueryWrapper<StockIn> inWrapper = new LambdaQueryWrapper<>();
+        inWrapper.eq(StockIn::getProductId, productId).orderByDesc(StockIn::getCreatedAt);
+        List<StockIn> stockIns = stockInMapper.selectList(inWrapper);
+
+        // 查询该商品的所有出库记录
+        LambdaQueryWrapper<StockOut> outWrapper = new LambdaQueryWrapper<>();
+        outWrapper.eq(StockOut::getProductId, productId).orderByDesc(StockOut::getCreatedAt);
+        List<StockOut> stockOuts = stockOutMapper.selectList(outWrapper);
+
+        // 合并为统一格式的列表
+        List<Map<String, Object>> allRecords = new ArrayList<>();
+
+        for (StockIn si : stockIns) {
+            Map<String, Object> record = new LinkedHashMap<>();
+            record.put("id", si.getId());
+            record.put("type", "IN");
+            record.put("quantity", si.getQuantity());
+            record.put("unitPrice", si.getUnitPrice());
+            record.put("totalPrice", si.getTotalPrice());
+            record.put("remark", si.getRemark());
+            record.put("status", si.getStatus());
+            record.put("createdAt", si.getCreatedAt());
+            // 填充操作人名称
+            if (si.getOperatorId() != null) {
+                var user = userMapper.selectById(si.getOperatorId());
+                record.put("operatorName", user != null ? user.getName() : String.valueOf(si.getOperatorId()));
+            } else {
+                record.put("operatorName", "-");
+            }
+            allRecords.add(record);
+        }
+
+        for (StockOut so : stockOuts) {
+            Map<String, Object> record = new LinkedHashMap<>();
+            record.put("id", so.getId());
+            record.put("type", "OUT");
+            record.put("quantity", so.getQuantity());
+            record.put("unitPrice", so.getUnitPrice());
+            record.put("totalPrice", so.getTotalPrice());
+            record.put("remark", so.getRemark());
+            record.put("status", so.getStatus());
+            record.put("createdAt", so.getCreatedAt());
+            // 填充操作人名称
+            if (so.getOperatorId() != null) {
+                var user = userMapper.selectById(so.getOperatorId());
+                record.put("operatorName", user != null ? user.getName() : String.valueOf(so.getOperatorId()));
+            } else {
+                record.put("operatorName", "-");
+            }
+            allRecords.add(record);
+        }
+
+        // 按 createdAt 倒序排序
+        allRecords.sort((a, b) -> {
+            Timestamp ta = (Timestamp) a.get("createdAt");
+            Timestamp tb = (Timestamp) b.get("createdAt");
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return tb.compareTo(ta);
+        });
+
+        // 手动分页
+        int total = allRecords.size();
+        int fromIndex = (currentPage - 1) * size;
+        int toIndex = Math.min(fromIndex + size, total);
+        List<Map<String, Object>> pageRecords = (fromIndex < total) ? allRecords.subList(fromIndex, toIndex) : new ArrayList<>();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("records", pageRecords);
+        result.put("total", total);
+        result.put("current", currentPage);
+        result.put("size", size);
+
+        return result;
+    }
 
     @Transactional
     public Result<?> createStockIn(StockIn stockIn) {

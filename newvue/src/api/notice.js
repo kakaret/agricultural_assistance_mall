@@ -66,13 +66,18 @@ export function deleteNotice(id) {
 
 /**
  * Get all notices (admin)
- * @param {Object} params - Query parameters {page, size, type}
+ * 后端参数为 title（非 keyword），需要做映射
+ * @param {Object} params - Query parameters {page, size, type, keyword}
  * @returns {Promise}
  */
 export function getAllNotices(params) {
+    const { keyword, ...rest } = params || {}
     return request({
         url: '/notice/page',
         method: 'get',
-        params
+        params: {
+            ...rest,
+            title: keyword || ''
+        }
     })
 }

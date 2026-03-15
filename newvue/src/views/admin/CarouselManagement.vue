@@ -19,8 +19,8 @@
         <el-table-column label="图片预览" width="200">
           <template slot-scope="scope">
             <el-image
-              :src="scope.row.imageUrl"
-              :preview-src-list="[scope.row.imageUrl]"
+              :src="getFullImageUrl(scope.row.imageUrl)"
+              :preview-src-list="[getFullImageUrl(scope.row.imageUrl)]"
               fit="cover"
               style="width: 160px; height: 90px; border-radius: 4px"
             ></el-image>
@@ -29,12 +29,12 @@
         
         <el-table-column prop="title" label="标题" min-width="150"></el-table-column>
         
-        <el-table-column prop="linkUrl" label="链接地址" min-width="200" show-overflow-tooltip></el-table-column>
+        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip></el-table-column>
         
-        <el-table-column prop="sort" label="排序" width="100" align="center">
+        <el-table-column prop="sortOrder" label="排序" width="100" align="center">
           <template slot-scope="scope">
             <el-input-number
-              v-model="scope.row.sort"
+              v-model="scope.row.sortOrder"
               :min="0"
               size="small"
               @change="handleSortChange(scope.row)"
@@ -99,16 +99,13 @@
           <el-input v-model="carouselForm.title" placeholder="请输入标题"></el-input>
         </el-form-item>
         
-        <el-form-item label="链接地址">
-          <el-input v-model="carouselForm.linkUrl" placeholder="请输入链接地址（可选）">
-            <template slot="prepend">http://</template>
-          </el-input>
-          <div class="form-tip">点击轮播图时跳转的链接</div>
+        <el-form-item label="描述">
+          <el-input v-model="carouselForm.description" type="textarea" :rows="2" placeholder="请输入描述（可选）"></el-input>
         </el-form-item>
         
         <el-form-item label="排序">
           <el-input-number
-            v-model="carouselForm.sort"
+            v-model="carouselForm.sortOrder"
             :min="0"
             style="width: 100%"
           ></el-input-number>
@@ -136,6 +133,7 @@
 <script>
 import ImageUploader from '@/components/common/ImageUploader.vue'
 import { getAllCarousels, createCarousel, updateCarousel, deleteCarousel, updateCarouselSort } from '@/api/carousel'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'CarouselManagement',
@@ -155,8 +153,8 @@ export default {
         id: null,
         title: '',
         imageUrl: '',
-        linkUrl: '',
-        sort: 0,
+        description: '',
+        sortOrder: 0,
         status: 1
       },
       carouselRules: {
@@ -181,12 +179,17 @@ export default {
   },
   
   methods: {
+    getFullImageUrl(url) {
+      return getImageUrl(url)
+    },
+    
     async loadCarousels() {
       this.loading = true
       try {
-        const res = await getAllCarousels()
+        const res = await getAllCarousels({ currentPage: 1, size: 100 })
         if (res.code === '0') {
-          this.carousels = res.data || []
+          // 后端 /carousel/page 返回分页对象，数据在 records 中
+          this.carousels = res.data?.records || res.data || []
         }
       } catch (error) {
         console.error('Load carousels failed:', error)
@@ -207,8 +210,8 @@ export default {
         id: row.id,
         title: row.title,
         imageUrl: row.imageUrl,
-        linkUrl: row.linkUrl || '',
-        sort: row.sort,
+        description: row.description || '',
+        sortOrder: row.sortOrder,
         status: row.status
       }
       this.dialogVisible = true
@@ -246,7 +249,7 @@ export default {
     
     async handleSortChange(row) {
       try {
-        await updateCarouselSort(row.id, row.sort)
+        await updateCarouselSort(row.id, row.sortOrder)
         this.$message.success('排序更新成功')
         this.loadCarousels()
       } catch (error) {
@@ -288,8 +291,8 @@ export default {
         id: null,
         title: '',
         imageUrl: '',
-        linkUrl: '',
-        sort: 0,
+        description: '',
+        sortOrder: 0,
         status: 1
       }
       if (this.$refs.carouselForm) {
