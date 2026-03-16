@@ -52,6 +52,7 @@
 
 <script>
 import { getToken } from '@/utils/auth'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'ImageUploader',
@@ -73,16 +74,21 @@ export default {
   
   data() {
     return {
-      imageUrl: this.value,
+      imageUrl: '',
       uploading: false,
       uploadProgress: 0
     }
   },
   
+  created() {
+    this.imageUrl = this.getDisplayUrl(this.value)
+  },
+  
   computed: {
     uploadUrl() {
       // Use the backend API base URL for file upload
-      return process.env.VUE_APP_BASE_API + '/file/upload'
+      const baseApi = process.env.VUE_APP_BASE_API || '/api'
+      return baseApi + '/file/upload'
     },
     
     uploadHeaders() {
@@ -105,11 +111,18 @@ export default {
   
   watch: {
     value(newVal) {
-      this.imageUrl = newVal
+      this.imageUrl = this.getDisplayUrl(newVal)
     }
   },
   
   methods: {
+    getDisplayUrl(url) {
+      if (!url) return ''
+      // If already a full URL or already has /api prefix, return as is
+      if (url.startsWith('http') || url.startsWith('/api')) return url
+      return getImageUrl(url)
+    },
+    
     beforeUpload(file) {
       // Check file type
       const acceptTypes = this.accept.split(',')
@@ -144,9 +157,11 @@ export default {
       
       // Assuming the response contains the image URL
       if (response && response.data) {
-        this.imageUrl = response.data.url || response.data
-        this.$emit('input', this.imageUrl)
-        this.$emit('upload-success', this.imageUrl)
+        const rawUrl = response.data.url || response.data
+        // Display with /api prefix, but emit raw url for database storage
+        this.imageUrl = this.getDisplayUrl(rawUrl)
+        this.$emit('input', rawUrl)
+        this.$emit('upload-success', rawUrl)
         this.$message.success('图片上传成功')
       } else {
         this.$message.error('上传失败：响应格式错误')

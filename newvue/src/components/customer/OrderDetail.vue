@@ -27,7 +27,7 @@
       <div class="detail-section">
         <h3 class="section-title">商品信息</h3>
         <div class="product-info">
-          <img :src="order.product.imageUrl" :alt="order.product.name" class="product-image">
+          <img :src="getProductImage(order.product.imageUrl)" :alt="order.product.name" class="product-image">
           <div class="product-details">
             <h4 class="product-name">{{ order.product.name }}</h4>
             <p class="product-price">¥{{ order.price }}</p>
@@ -104,6 +104,7 @@
 <script>
 import { getOrder, cancelOrder } from '@/api/order'
 import { formatDate } from '@/utils/date'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'OrderDetail',
@@ -199,6 +200,10 @@ export default {
   
   methods: {
     formatDate,
+    
+    getProductImage(imageUrl) {
+      return imageUrl ? getImageUrl(imageUrl) : ''
+    },
     
     async fetchOrderDetail() {
       this.loading = true

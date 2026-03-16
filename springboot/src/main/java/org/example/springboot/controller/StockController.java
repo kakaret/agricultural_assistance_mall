@@ -20,18 +20,6 @@ public class StockController {
     public Result<?> createStockOut(@RequestBody StockOut stockOut) {
         return stockService.createStockOut(stockOut);
     }
-
-    /**
-     * 获取某商品的操作历史（合并入库+出库记录）
-     */
-    @GetMapping("/product/{productId}/history")
-    public Result<?> getProductStockHistory(
-            @PathVariable Long productId,
-            @RequestParam(defaultValue = "1") Integer currentPage,
-            @RequestParam(defaultValue = "10") Integer size) {
-        return Result.success(stockService.getProductStockHistory(productId, currentPage, size));
-    }
-
     @GetMapping("/in/list")
     public Result<?> getStockInList(
             @RequestParam(required = false) Long productId,

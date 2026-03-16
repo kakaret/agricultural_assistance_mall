@@ -8,7 +8,7 @@
       <div v-else-if="product" class="product-detail">
         <div class="product-images">
           <img 
-            v-lazy="product.imageUrl || defaultImage" 
+            v-lazy="getProductImage(product.imageUrl)" 
             :alt="product.name" 
             class="main-image lazy-image" 
           />
@@ -87,6 +87,7 @@ import { mapActions, mapGetters } from 'vuex'
 import Header from '@/components/common/Header.vue'
 import Footer from '@/components/common/Footer.vue'
 import Loading from '@/components/common/Loading.vue'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'ProductDetail',
@@ -113,6 +114,10 @@ export default {
   methods: {
     ...mapActions('product', ['fetchProductDetail']),
     ...mapActions('cart', ['addToCart']),
+    
+    getProductImage(imageUrl) {
+      return imageUrl ? getImageUrl(imageUrl) : this.defaultImage
+    },
     
     async loadProduct() {
       const productId = this.$route.params.id

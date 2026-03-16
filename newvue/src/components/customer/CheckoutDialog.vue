@@ -36,7 +36,7 @@
             :key="item.id"
             class="order-item"
           >
-            <img :src="item.product.imageUrl" :alt="item.product.name" class="item-image">
+            <img :src="getProductImage(item.product.imageUrl)" :alt="item.product.name" class="item-image">
             <div class="item-info">
               <h4 class="item-name">{{ item.product.name }}</h4>
               <p class="item-price">¥{{ getItemPrice(item) }} × {{ item.quantity }}</p>
@@ -89,6 +89,7 @@ import { mapGetters } from 'vuex'
 import AddressSelector from './AddressSelector.vue'
 import { getAddresses } from '@/api/address'
 import { createOrder } from '@/api/order'
+import { getImageUrl } from '@/utils/image'
 
 export default {
   name: 'CheckoutDialog',
@@ -151,6 +152,10 @@ export default {
   },
   
   methods: {
+    getProductImage(imageUrl) {
+      return imageUrl ? getImageUrl(imageUrl) : ''
+    },
+    
     getItemPrice(item) {
       return item.product.isDiscount ? item.product.discountPrice : item.product.price
     },
