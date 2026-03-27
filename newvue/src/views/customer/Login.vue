@@ -134,7 +134,10 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-image: url('https://img1.baidu.com/it/u=2176280983,589576205&fm=253&app=138&f=JPEG?w=889&h=500');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   padding: 20px;
 }
 

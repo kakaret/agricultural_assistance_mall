@@ -40,6 +40,17 @@ public class UserController {
         return userService.login(user);
 
     }
+        @PostMapping("/add")
+    public Result<?> createUser(@RequestBody User user) {
+        int res = userService.createUser(user);
+        if (res == -1) return Result.error("-1", "用户名已存在");
+        if (res == -2) return Result.error("-1", "邮箱已存在！");
+        if (res > 0) {
+            return Result.success(user);
+        } else {
+            return Result.error("-1", "创建用户失败");
+        }
+    }
     @PutMapping("/password/{id}")
     public Result<?> updatePassword(@PathVariable int id, @RequestBody UserPasswordUpdate userPasswordUpdate) {
         boolean success = userService.updatePassword(id, userPasswordUpdate);
@@ -99,17 +110,7 @@ public class UserController {
             return Result.error("-1", "未找到用户");
         }
     }
-    @PostMapping("/add")
-    public Result<?> createUser(@RequestBody User user) {
-        int res = userService.createUser(user);
-        if (res == -1) return Result.error("-1", "用户名已存在");
-        if (res == -2) return Result.error("-1", "邮箱已存在！");
-        if (res > 0) {
-            return Result.success(user);
-        } else {
-            return Result.error("-1", "创建用户失败");
-        }
-    }
+
     @PutMapping("/{id}")
     public Result<?> updateUser(@PathVariable Long id, @RequestBody User user) {
         boolean success = userService.updateUser(id, user);
