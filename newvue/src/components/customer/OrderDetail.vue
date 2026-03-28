@@ -65,9 +65,29 @@
       <div v-if="order.logistics" class="detail-section">
         <h3 class="section-title">物流信息</h3>
         <div class="logistics-info">
-          <p><strong>物流公司：</strong>{{ order.logistics.company }}</p>
+          <p><strong>物流公司：</strong>{{ order.logistics.companyName || order.logistics.company }}</p>
           <p><strong>运单号：</strong>{{ order.logistics.trackingNumber }}</p>
-          <p><strong>物流状态：</strong>{{ order.logistics.status }}</p>
+          <p><strong>物流状态：</strong>
+            <el-tag :type="getLogisticsStatusType(order.logistics.status)" size="small">
+              {{ getLogisticsStatusText(order.logistics.status) }}
+            </el-tag>
+          </p>
+          <p v-if="order.logistics.expectedArrivalTime"><strong>预计到达：</strong>{{ formatDate(order.logistics.expectedArrivalTime) }}</p>
+        </div>
+      </div>
+
+      <!-- Refund Information -->
+      <div v-if="order.refundReason || order.status >= 5" class="detail-section">
+        <h3 class="section-title">售后信息</h3>
+        <div class="refund-info">
+          <p v-if="order.refundReason"><strong>退款原因：</strong>{{ order.refundReason }}</p>
+          <p v-if="order.remark && order.status >= 6"><strong>处理备注：</strong>{{ order.remark }}</p>
+          <p v-if="order.refundTime"><strong>退款时间：</strong>{{ formatDate(order.refundTime) }}</p>
+          <p><strong>退款状态：</strong>
+            <el-tag :type="getRefundStatusType(order.refundStatus)" size="small">
+              {{ getRefundStatusText(order.refundStatus) }}
+            </el-tag>
+          </p>
         </div>
       </div>
 
@@ -138,15 +158,13 @@ export default {
       
       const timeline = []
       
-      // Order created
       timeline.push({
         timestamp: this.formatDate(this.order.createdAt),
         content: '订单已创建',
         type: 'primary'
       })
       
-      // Order paid
-      if (this.order.status >= 1) {
+      if (this.order.status >= 1 && this.order.status !== 4) {
         timeline.push({
           timestamp: this.formatDate(this.order.updatedAt),
           content: '订单已支付',
@@ -154,8 +172,7 @@ export default {
         })
       }
       
-      // Order shipped
-      if (this.order.status >= 2) {
+      if (this.order.status >= 2 && this.order.status <= 3) {
         timeline.push({
           timestamp: this.formatDate(this.order.updatedAt),
           content: '订单已发货',
@@ -163,7 +180,6 @@ export default {
         })
       }
       
-      // Order completed
       if (this.order.status === 3) {
         timeline.push({
           timestamp: this.formatDate(this.order.updatedAt),
@@ -172,11 +188,34 @@ export default {
         })
       }
       
-      // Order cancelled
       if (this.order.status === 4) {
         timeline.push({
           timestamp: this.formatDate(this.order.updatedAt),
           content: '订单已取消',
+          type: 'danger'
+        })
+      }
+
+      if (this.order.status === 5) {
+        timeline.push({
+          timestamp: this.formatDate(this.order.updatedAt),
+          content: '用户申请退款',
+          type: 'warning'
+        })
+      }
+
+      if (this.order.status === 6) {
+        timeline.push({
+          timestamp: this.formatDate(this.order.refundTime || this.order.updatedAt),
+          content: '退款已完成',
+          type: 'success'
+        })
+      }
+
+      if (this.order.status === 7) {
+        timeline.push({
+          timestamp: this.formatDate(this.order.updatedAt),
+          content: '退款被拒绝',
           type: 'danger'
         })
       }
@@ -228,7 +267,10 @@ export default {
         1: '已支付',
         2: '已发货',
         3: '已完成',
-        4: '已取消'
+        4: '已取消',
+        5: '退款中',
+        6: '已退款',
+        7: '拒绝退款'
       }
       return statusMap[status] || '未知'
     },
@@ -239,9 +281,32 @@ export default {
         1: 'success',
         2: 'primary',
         3: 'success',
-        4: 'info'
+        4: 'info',
+        5: 'warning',
+        6: 'info',
+        7: 'danger'
       }
       return typeMap[status] || 'info'
+    },
+
+    getLogisticsStatusText(status) {
+      const map = { 0: '待发货', 1: '运输中', 2: '已签收', 3: '已取消' }
+      return map[status] || '未知'
+    },
+
+    getLogisticsStatusType(status) {
+      const map = { 0: 'info', 1: 'primary', 2: 'success', 3: 'danger' }
+      return map[status] || 'info'
+    },
+
+    getRefundStatusText(status) {
+      const map = { 0: '无退款', 1: '申请退款', 2: '退款中', 3: '已退款', 4: '退款失败' }
+      return map[status] || '未知'
+    },
+
+    getRefundStatusType(status) {
+      const map = { 0: 'info', 1: 'warning', 2: 'warning', 3: 'success', 4: 'danger' }
+      return map[status] || 'info'
     },
     
     async handleCancelOrder() {
@@ -391,18 +456,21 @@ export default {
 }
 
 /* Address Info */
-.address-info p {
+.address-info p,
+.refund-info p {
   font-size: 14px;
   color: #606266;
   line-height: 1.8;
   margin: 0 0 8px 0;
 }
 
-.address-info p:last-child {
+.address-info p:last-child,
+.refund-info p:last-child {
   margin-bottom: 0;
 }
 
-.address-info strong {
+.address-info strong,
+.refund-info strong {
   color: #303133;
 }
 

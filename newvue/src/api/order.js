@@ -113,6 +113,68 @@ export function updateLogistics(logisticsId, status) {
 }
 
 /**
+ * Pay order - 支付订单
+ * @param {number} id - Order ID
+ * @returns {Promise}
+ */
+export function payOrder(id) {
+    return request({
+        url: `/order/${id}/pay`,
+        method: 'put'
+    })
+}
+
+/**
+ * Confirm receive - 确认收货（将状态更新为3已完成）
+ * @param {number} id - Order ID
+ * @returns {Promise}
+ */
+export function confirmOrder(id) {
+    return updateOrderStatus(id, 3)
+}
+
+/**
+ * Refund order - 用户申请退款
+ * @param {number} id - Order ID
+ * @param {string} reason - 退款原因
+ * @returns {Promise}
+ */
+export function refundOrder(id, reason) {
+    return request({
+        url: `/order/${id}/refund`,
+        method: 'post',
+        params: { reason }
+    })
+}
+
+/**
+ * Handle refund - 管理员处理退款
+ * @param {number} id - Order ID
+ * @param {number} status - 6同意退款 7拒绝退款
+ * @param {string} remark - 处理备注
+ * @returns {Promise}
+ */
+export function handleRefund(id, status, remark) {
+    return request({
+        url: `/order/${id}/handle-refund`,
+        method: 'put',
+        params: { status, remark }
+    })
+}
+
+/**
+ * Get order logistics - 查询订单物流信息
+ * @param {number} orderId - Order ID
+ * @returns {Promise}
+ */
+export function getOrderLogistics(orderId) {
+    return request({
+        url: `/order/${orderId}/logistics`,
+        method: 'get'
+    })
+}
+
+/**
  * Get order statistics (admin)
  * 使用后端已有的统计接口
  * @param {Object} params - Query parameters

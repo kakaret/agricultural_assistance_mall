@@ -35,8 +35,8 @@
           <i class="el-icon-s-home"></i>
           <span slot="title">仪表盘</span>
         </el-menu-item>
-        
-        <el-submenu index="product">
+
+        <el-submenu v-if="isAdmin" index="product">
           <template slot="title">
             <i class="el-icon-goods"></i>
             <span>商品管理</span>
@@ -44,23 +44,33 @@
           <el-menu-item index="/admin/products">商品列表</el-menu-item>
           <el-menu-item index="/admin/categories">分类管理</el-menu-item>
         </el-submenu>
-        
-        <el-menu-item index="/admin/orders">
+
+        <el-menu-item v-if="isAdmin" index="/admin/orders">
           <i class="el-icon-s-order"></i>
           <span slot="title">订单管理</span>
         </el-menu-item>
-        
-        <el-menu-item index="/admin/users">
+
+        <el-menu-item v-if="isAdmin" index="/admin/users">
           <i class="el-icon-user"></i>
           <span slot="title">用户管理</span>
         </el-menu-item>
-        
-        <el-menu-item index="/admin/stock">
+
+        <el-menu-item v-if="isAdmin" index="/admin/stock">
           <i class="el-icon-box"></i>
           <span slot="title">库存管理</span>
         </el-menu-item>
-        
-        <el-submenu index="content">
+
+        <el-menu-item v-if="isAdmin || isMerchant" index="/admin/after-sales">
+          <i class="el-icon-s-claim"></i>
+          <span slot="title">售后管理</span>
+        </el-menu-item>
+
+        <el-menu-item v-if="isAdmin" index="/admin/after-sales-arbitration">
+          <i class="el-icon-s-check"></i>
+          <span slot="title">售后仲裁</span>
+        </el-menu-item>
+
+        <el-submenu v-if="isAdmin" index="content">
           <template slot="title">
             <i class="el-icon-document"></i>
             <span>内容管理</span>
@@ -130,7 +140,7 @@ import { mapGetters, mapActions } from 'vuex'
 
 export default {
   name: 'AdminLayout',
-  
+
   data() {
     return {
       isCollapse: false,
@@ -139,9 +149,9 @@ export default {
       defaultAvatar: 'https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png'
     }
   },
-  
+
   computed: {
-    ...mapGetters('user', ['userInfo']),
+    ...mapGetters('user', ['userInfo', 'isAdmin', 'isMerchant']),
     
     activeMenu() {
       return this.$route.path

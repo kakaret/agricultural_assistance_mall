@@ -131,6 +131,14 @@ const getters = {
     },
 
     /**
+     * Check if user is merchant
+     */
+    isMerchant: state => {
+        const merchantRoles = ['MERCHANT', 'merchant']
+        return merchantRoles.includes(state.role)
+    },
+
+    /**
      * Check if user is customer
      */
     isCustomer: state => state.role === 'USER',

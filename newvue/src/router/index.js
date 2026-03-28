@@ -153,6 +153,18 @@ const routes = [
                 name: 'StockManagement',
                 component: () => import('@/views/admin/StockManagement.vue'),
                 meta: { title: '库存管理', requiresAuth: true, requiresAdmin: true }
+            },
+            {
+                path: 'after-sales',
+                name: 'AfterSalesManagement',
+                component: () => import('@/views/admin/AfterSalesManagement.vue'),
+                meta: { title: '售后管理', requiresAuth: true, requiresAdmin: true }
+            },
+            {
+                path: 'after-sales-arbitration',
+                name: 'AfterSalesArbitration',
+                component: () => import('@/views/admin/AfterSalesArbitration.vue'),
+                meta: { title: '售后仲裁', requiresAuth: true, requiresAdmin: true }
             }
         ]
     },
@@ -200,6 +212,7 @@ router.beforeEach((to, from, next) => {
     const store = require('@/store').default
     const isLoggedIn = store.getters['user/isLoggedIn']
     const isAdmin = store.getters['user/isAdmin']
+    const isMerchant = store.getters['user/isMerchant']
 
     // Check if route requires admin access
     if (to.matched.some(record => record.meta.requiresAdmin)) {
@@ -209,17 +222,33 @@ router.beforeEach((to, from, next) => {
                 path: '/login',
                 query: { redirect: to.fullPath }
             })
-        } else if (!isAdmin) {
-            // Not admin, redirect to home
+        } else if (!isAdmin && !isMerchant) {
+            // Not admin or merchant, redirect to home
             next({ path: '/' })
+        } else if (isMerchant && !isAdmin) {
+            // Merchant can only access after-sales management
+            const merchantAllowed = ['/admin/after-sales']
+            if (merchantAllowed.some(p => to.path.startsWith(p)) || to.path === '/admin') {
+                if (to.path === '/admin' || to.path === '/admin/dashboard') {
+                    next({ path: '/admin/after-sales' })
+                } else {
+                    next()
+                }
+            } else {
+                next({ path: '/admin/after-sales' })
+            }
         } else {
             next()
         }
     }
-    // Check if admin is trying to access customer pages
-    else if (isLoggedIn && isAdmin && !to.path.startsWith('/admin') && to.path !== '/login' && to.path !== '/register') {
-        // Admin trying to access customer pages, redirect to admin dashboard
-        next({ path: '/admin/dashboard' })
+    // Check if admin/merchant is trying to access customer pages
+    else if (isLoggedIn && (isAdmin || isMerchant) && !to.path.startsWith('/admin') && to.path !== '/login' && to.path !== '/register') {
+        // Admin/merchant trying to access customer pages, redirect to admin
+        if (isMerchant && !isAdmin) {
+            next({ path: '/admin/after-sales' })
+        } else {
+            next({ path: '/admin/dashboard' })
+        }
     }
     // Check if route requires authentication (but not admin)
     else if (to.matched.some(record => record.meta.requiresAuth)) {

@@ -10,6 +10,9 @@
       <el-tab-pane label="已发货" name="2"></el-tab-pane>
       <el-tab-pane label="已完成" name="3"></el-tab-pane>
       <el-tab-pane label="已取消" name="4"></el-tab-pane>
+      <el-tab-pane label="退款中" name="5"></el-tab-pane>
+      <el-tab-pane label="已退款" name="6"></el-tab-pane>
+      <el-tab-pane label="拒绝退款" name="7"></el-tab-pane>
     </el-tabs>
     
     <DataTable
@@ -43,6 +46,24 @@
           @click="handleShip(row)"
         >
           发货
+        </el-button>
+        <el-button
+          v-if="row.status === 5"
+          type="text"
+          size="small"
+          style="color: #67C23A"
+          @click="handleRefundApprove(row)"
+        >
+          同意退款
+        </el-button>
+        <el-button
+          v-if="row.status === 5"
+          type="text"
+          size="small"
+          style="color: #F56C6C"
+          @click="handleRefundReject(row)"
+        >
+          拒绝退款
         </el-button>
         <el-dropdown v-if="row.status < 3" @command="(cmd) => handleStatusUpdate(row, cmd)">
           <el-button type="text" size="small">
@@ -91,13 +112,22 @@
           <el-descriptions-item label="联系电话">{{ currentOrder.recvPhone }}</el-descriptions-item>
           <el-descriptions-item label="收货地址" :span="2">{{ currentOrder.recvAddress }}</el-descriptions-item>
           <el-descriptions-item label="下单时间" :span="2">{{ formatDate(currentOrder.createdAt) }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentOrder.refundReason" label="退款原因" :span="2">{{ currentOrder.refundReason }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentOrder.remark && currentOrder.status >= 5" label="处理备注" :span="2">{{ currentOrder.remark }}</el-descriptions-item>
+          <el-descriptions-item v-if="currentOrder.refundTime" label="退款时间">{{ formatDate(currentOrder.refundTime) }}</el-descriptions-item>
         </el-descriptions>
         
         <div v-if="currentOrder.logistics" class="logistics-info">
           <h4>物流信息</h4>
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="物流公司">{{ currentOrder.logistics.company }}</el-descriptions-item>
+            <el-descriptions-item label="物流公司">{{ currentOrder.logistics.companyName || currentOrder.logistics.company }}</el-descriptions-item>
             <el-descriptions-item label="运单号">{{ currentOrder.logistics.trackingNumber }}</el-descriptions-item>
+            <el-descriptions-item label="物流状态">
+              <el-tag :type="getLogisticsStatusType(currentOrder.logistics.status)" size="small">
+                {{ getLogisticsStatusText(currentOrder.logistics.status) }}
+              </el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item v-if="currentOrder.logistics.expectedArrivalTime" label="预计到达">{{ formatDate(currentOrder.logistics.expectedArrivalTime) }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </div>
@@ -138,12 +168,43 @@
         </el-button>
       </span>
     </el-dialog>
+
+    <!-- Refund Handle Dialog -->
+    <el-dialog
+      :title="refundAction === 'approve' ? '同意退款' : '拒绝退款'"
+      :visible.sync="refundDialogVisible"
+      width="450px"
+    >
+      <el-form label-width="80px">
+        <el-form-item v-if="refundCurrentOrder" label="退款原因">
+          <span>{{ refundCurrentOrder.refundReason || '无' }}</span>
+        </el-form-item>
+        <el-form-item label="处理备注">
+          <el-input
+            v-model="refundRemark"
+            type="textarea"
+            :rows="3"
+            :placeholder="refundAction === 'approve' ? '请输入同意退款备注（可选）' : '请输入拒绝原因'"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="refundDialogVisible = false">取消</el-button>
+        <el-button
+          :type="refundAction === 'approve' ? 'success' : 'danger'"
+          :loading="refundSubmitting"
+          @click="submitRefundHandle"
+        >
+          {{ refundAction === 'approve' ? '确认同意' : '确认拒绝' }}
+        </el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import DataTable from '@/components/admin/DataTable.vue'
-import { getAllOrders, updateOrderStatus, addLogistics } from '@/api/order'
+import { getAllOrders, updateOrderStatus, addLogistics, handleRefund } from '@/api/order'
 import { formatDate } from '@/utils/date'
 
 export default {
@@ -178,6 +239,11 @@ export default {
           { required: true, message: '请输入运单号', trigger: 'blur' }
         ]
       },
+      refundDialogVisible: false,
+      refundAction: '',
+      refundRemark: '',
+      refundSubmitting: false,
+      refundCurrentOrder: null,
       columns: [
         { prop: 'id', label: '订单号', width: '120' },
         { prop: 'product.name', label: '商品名称', minWidth: '150' },
@@ -211,7 +277,6 @@ export default {
           size: this.pageSize
         }
         
-        // 后端支持按 id 搜索，不支持 keyword
         if (this.searchKeyword) {
           params.id = this.searchKeyword
         }
@@ -301,13 +366,12 @@ export default {
         
         try {
           await addLogistics(this.currentOrder.id, this.logisticsForm)
-          await updateOrderStatus(this.currentOrder.id, 2) // 标记为已发货
+          await updateOrderStatus(this.currentOrder.id, 2)
           
           this.$message.success('发货成功')
           this.logisticsDialogVisible = false
           this.loadOrders()
           
-          // Reset form
           this.logisticsForm = {
             company: '',
             trackingNumber: ''
@@ -320,6 +384,40 @@ export default {
         }
       })
     },
+
+    handleRefundApprove(row) {
+      this.refundCurrentOrder = row
+      this.refundAction = 'approve'
+      this.refundRemark = ''
+      this.refundDialogVisible = true
+    },
+
+    handleRefundReject(row) {
+      this.refundCurrentOrder = row
+      this.refundAction = 'reject'
+      this.refundRemark = ''
+      this.refundDialogVisible = true
+    },
+
+    async submitRefundHandle() {
+      if (this.refundAction === 'reject' && !this.refundRemark.trim()) {
+        this.$message.warning('拒绝退款时请填写原因')
+        return
+      }
+      this.refundSubmitting = true
+      try {
+        const status = this.refundAction === 'approve' ? 6 : 7
+        await handleRefund(this.refundCurrentOrder.id, status, this.refundRemark || '已处理')
+        this.$message.success(this.refundAction === 'approve' ? '已同意退款' : '已拒绝退款')
+        this.refundDialogVisible = false
+        this.loadOrders()
+      } catch (error) {
+        console.error('Handle refund failed:', error)
+        this.$message.error('处理退款失败')
+      } finally {
+        this.refundSubmitting = false
+      }
+    },
     
     getStatusText(status) {
       const statusMap = {
@@ -327,7 +425,10 @@ export default {
         1: '已支付',
         2: '已发货',
         3: '已完成',
-        4: '已取消'
+        4: '已取消',
+        5: '退款中',
+        6: '已退款',
+        7: '拒绝退款'
       }
       return statusMap[status] || '未知'
     },
@@ -338,9 +439,22 @@ export default {
         1: 'success',
         2: 'primary',
         3: 'success',
-        4: 'info'
+        4: 'info',
+        5: 'warning',
+        6: 'info',
+        7: 'danger'
       }
       return typeMap[status] || 'info'
+    },
+
+    getLogisticsStatusText(status) {
+      const map = { 0: '待发货', 1: '运输中', 2: '已签收', 3: '已取消' }
+      return map[status] || '未知'
+    },
+
+    getLogisticsStatusType(status) {
+      const map = { 0: 'info', 1: 'primary', 2: 'success', 3: 'danger' }
+      return map[status] || 'info'
     }
   }
 }
