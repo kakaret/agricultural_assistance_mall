@@ -42,9 +42,10 @@ public class ArticleController {
     public Result<?> getArticlesByPage(
             @RequestParam(required = false) String title,
             @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Integer articleType,
             @RequestParam(defaultValue = "1") Integer currentPage,
             @RequestParam(defaultValue = "10") Integer size) {
-        return Result.success(articleService.getArticlesByPage(title, status, currentPage, size));
+        return Result.success(articleService.getArticlesByPage(title, status, articleType, currentPage, size));
     }
 
     @PutMapping("/{id}/status")

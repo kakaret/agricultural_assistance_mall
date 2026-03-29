@@ -139,3 +139,35 @@ export function getNewProducts(limit = 8) {
         params: { limit }
     })
 }
+
+/**
+ * 获取当季商品（时令推荐）
+ */
+export function getSeasonalProducts(season, limit = 8) {
+    return request({
+        url: '/product/seasonal',
+        method: 'get',
+        params: { season, limit }
+    })
+}
+
+/**
+ * 获取产地分布统计
+ */
+export function getOriginStats() {
+    return request({
+        url: '/product/origin-stats',
+        method: 'get'
+    })
+}
+
+/**
+ * 按产地查询商品
+ */
+export function getProductsByOrigin(origin, params) {
+    return request({
+        url: '/product/by-origin',
+        method: 'get',
+        params: { origin, ...params }
+    })
+}

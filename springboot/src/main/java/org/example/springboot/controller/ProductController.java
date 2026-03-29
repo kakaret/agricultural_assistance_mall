@@ -67,4 +67,32 @@ public class ProductController {
         return productService.updateBatchStatus(ids, status);
     }
 
+    /**
+     * 获取当季商品（时令推荐）
+     */
+    @GetMapping("/seasonal")
+    public Result<?> getSeasonalProducts(
+            @RequestParam(required = false) String season,
+            @RequestParam(defaultValue = "8") Integer limit) {
+        return productService.getSeasonalProducts(season, limit);
+    }
+
+    /**
+     * 获取产地分布统计（产地地图用）
+     */
+    @GetMapping("/origin-stats")
+    public Result<?> getOriginStats() {
+        return productService.getOriginStats();
+    }
+
+    /**
+     * 按产地查询商品
+     */
+    @GetMapping("/by-origin")
+    public Result<?> getProductsByOrigin(
+            @RequestParam String origin,
+            @RequestParam(defaultValue = "1") Integer currentPage,
+            @RequestParam(defaultValue = "10") Integer size) {
+        return productService.getProductsByOrigin(origin, currentPage, size);
+    }
 } 

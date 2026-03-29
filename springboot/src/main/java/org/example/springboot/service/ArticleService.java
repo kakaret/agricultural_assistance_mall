@@ -99,17 +99,20 @@ public class ArticleService {
         }
     }
 
-    public Page<Article> getArticlesByPage(String title, Integer status,
+    public Page<Article> getArticlesByPage(String title, Integer status, Integer articleType,
                                          Integer currentPage, Integer size) {
         LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<>();
-        
+
         if (title != null && !title.trim().isEmpty()) {
             queryWrapper.like(Article::getTitle, title.trim());
         }
         if (status != null) {
             queryWrapper.eq(Article::getStatus, status);
         }
-        
+        if (articleType != null) {
+            queryWrapper.eq(Article::getArticleType, articleType);
+        }
+
         queryWrapper.orderByDesc(Article::getCreatedAt);
 
         Page<Article> page = new Page<>(currentPage, size);

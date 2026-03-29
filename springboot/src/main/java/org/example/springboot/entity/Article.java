@@ -28,6 +28,8 @@ public class Article {
     @NotNull(message = "状态不能为空")
     private Integer status = 1;
 
+    private Integer articleType;  // 0=种植技术, 1=食品安全, 2=农业政策, 3=农产品知识
+
     private Timestamp createdAt;
 
     private Timestamp updatedAt;

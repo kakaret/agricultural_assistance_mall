@@ -178,7 +178,7 @@ export default {
         this.$router.push('/login')
         return
       }
-      
+
       this.$message.info('收藏功能开发中')
     }
   }

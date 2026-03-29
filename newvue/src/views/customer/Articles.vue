@@ -1,26 +1,46 @@
 <template>
   <div class="articles-page">
     <Header />
-    
+
     <div class="articles-container">
-      <h2 class="page-title">农业资讯</h2>
-      
+      <h2 class="page-title">
+        <i class="el-icon-reading" style="color:#67c23a;margin-right:8px"></i>
+        农业科普
+      </h2>
+
+      <el-tabs v-model="activeType" @tab-click="handleTypeChange">
+        <el-tab-pane label="全部" name="all"></el-tab-pane>
+        <el-tab-pane label="种植技术" name="0"></el-tab-pane>
+        <el-tab-pane label="食品安全" name="1"></el-tab-pane>
+        <el-tab-pane label="农业政策" name="2"></el-tab-pane>
+        <el-tab-pane label="农产品知识" name="3"></el-tab-pane>
+      </el-tabs>
+
       <Loading v-if="loading" :visible="loading" />
-      
+
       <div v-else-if="articles.length > 0" class="articles-content">
         <div class="articles-grid">
-          <div 
-            v-for="article in articles" 
-            :key="article.id" 
+          <div
+            v-for="article in articles"
+            :key="article.id"
             class="article-card"
             @click="goToArticle(article.id)"
           >
             <div class="article-cover">
-              <img 
-                v-lazy="getArticleImage(article.coverImage)" 
+              <img
+                v-lazy="getArticleImage(article.coverImage)"
                 :alt="article.title"
                 class="lazy-image"
               />
+              <el-tag
+                v-if="article.articleType !== null && article.articleType !== undefined"
+                class="article-type-tag"
+                :type="articleTypeTagType(article.articleType)"
+                size="small"
+                effect="dark"
+              >
+                {{ articleTypeText(article.articleType) }}
+              </el-tag>
             </div>
             <div class="article-info">
               <h3 class="article-title">{{ article.title }}</h3>
@@ -42,7 +62,7 @@
             </div>
           </div>
         </div>
-        
+
         <Pagination
           v-if="total > pageSize"
           :total="total"
@@ -51,10 +71,10 @@
           @page-change="handlePageChange"
         />
       </div>
-      
+
       <el-empty v-else description="暂无文章"></el-empty>
     </div>
-    
+
     <Footer />
   </div>
 </template>
@@ -82,7 +102,8 @@ export default {
       loading: false,
       currentPage: 1,
       pageSize: 12,
-      total: 0
+      total: 0,
+      activeType: 'all'
     }
   },
   created() {
@@ -92,11 +113,16 @@ export default {
     async loadArticles() {
       this.loading = true
       try {
-        const response = await getArticles({
+        const params = {
           page: this.currentPage,
           size: this.pageSize
-        })
-        
+        }
+        if (this.activeType !== 'all') {
+          params.articleType = parseInt(this.activeType)
+        }
+
+        const response = await getArticles(params)
+
         if (response.data) {
           if (Array.isArray(response.data)) {
             this.articles = response.data
@@ -116,24 +142,39 @@ export default {
         this.loading = false
       }
     },
-    
+
+    handleTypeChange() {
+      this.currentPage = 1
+      this.loadArticles()
+    },
+
     handlePageChange({ page, size }) {
       this.currentPage = page
       this.pageSize = size
       this.loadArticles()
       window.scrollTo(0, 0)
     },
-    
+
     getArticleImage(imageUrl) {
       return imageUrl ? getImageUrl(imageUrl) : getPlaceholderImage(400, 250)
     },
-    
+
     formatDate(date) {
       return formatDate(date, false)
     },
-    
+
     goToArticle(id) {
       this.$router.push(`/article/${id}`)
+    },
+
+    articleTypeText(type) {
+      const map = { 0: '种植技术', 1: '食品安全', 2: '农业政策', 3: '农产品知识' }
+      return map[type] || '综合'
+    },
+
+    articleTypeTagType(type) {
+      const map = { 0: 'success', 1: 'danger', 2: '', 3: 'warning' }
+      return map[type] || 'info'
     }
   }
 }
@@ -157,9 +198,11 @@ export default {
 
 .page-title {
   font-size: 24px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
   color: #303133;
   font-weight: 600;
+  display: flex;
+  align-items: center;
 }
 
 .articles-content {
@@ -196,6 +239,7 @@ export default {
   height: 220px;
   overflow: hidden;
   background: #f5f7fa;
+  position: relative;
 }
 
 .article-cover img {
@@ -212,6 +256,12 @@ export default {
 
 .article-card:hover .article-cover img {
   transform: scale(1.05);
+}
+
+.article-type-tag {
+  position: absolute;
+  top: 10px;
+  left: 10px;
 }
 
 .article-info {
@@ -276,25 +326,25 @@ export default {
   .articles-container {
     padding: 15px;
   }
-  
+
   .page-title {
     font-size: 20px;
     margin-bottom: 20px;
   }
-  
+
   .articles-content {
     padding: 20px 15px;
   }
-  
+
   .articles-grid {
     grid-template-columns: 1fr;
     gap: 15px;
   }
-  
+
   .article-cover {
     height: 200px;
   }
-  
+
   .article-meta {
     flex-wrap: wrap;
     gap: 10px;
