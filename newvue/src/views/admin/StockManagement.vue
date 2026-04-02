@@ -355,6 +355,7 @@ import { getProducts } from '@/api/product'
 import { stockIn, stockOut, getStockHistory } from '@/api/stock'
 import { formatDate } from '@/utils/date'
 import { getImageUrl } from '@/utils/image'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'StockManagement',
@@ -439,6 +440,13 @@ export default {
     }
   },
   
+  computed: {
+    ...mapGetters('user', ['userId', 'isAdmin', 'isMerchant']),
+    merchantFilter() {
+      return this.isMerchant && !this.isAdmin ? { merchantId: this.userId } : {}
+    }
+  },
+
   created() {
     this.loadProducts()
     this.loadAllProducts()
@@ -457,7 +465,8 @@ export default {
         const res = await getProducts({
           currentPage: this.currentPage,
           size: this.pageSize,
-          keyword: this.searchKeyword
+          keyword: this.searchKeyword,
+          ...this.merchantFilter
         })
         
         if (res.code === '0') {
@@ -476,7 +485,8 @@ export default {
       try {
         const res = await getProducts({
           currentPage: 1,
-          size: 1000
+          size: 1000,
+          ...this.merchantFilter
         })
         
         if (res.code === '0') {

@@ -34,7 +34,7 @@
         />
       </el-col>
       
-      <el-col :xs="24" :sm="12" :lg="6">
+      <el-col v-if="isAdmin" :xs="24" :sm="12" :lg="6">
         <StatisticsCard
           title="用户总数"
           :value="statistics.totalUsers"
@@ -128,6 +128,7 @@
 import StatisticsCard from '@/components/admin/StatisticsCard.vue'
 import { getOrderStatistics, getAllOrders } from '@/api/order'
 import { formatDate } from '@/utils/date'
+import { mapGetters } from 'vuex'
 import * as echarts from 'echarts'
 
 export default {
@@ -155,7 +156,11 @@ export default {
       orderStatusChart: null
     }
   },
-  
+
+  computed: {
+    ...mapGetters('user', ['userId', 'isAdmin', 'isMerchant'])
+  },
+
   mounted() {
     this.loadStatistics()
     this.loadRecentOrders()
@@ -194,10 +199,14 @@ export default {
     
     async loadRecentOrders() {
       try {
-        const res = await getAllOrders({
+        const params = {
           currentPage: 1,
           size: 5
-        })
+        }
+        if (this.isMerchant && !this.isAdmin) {
+          params.merchantId = this.userId
+        }
+        const res = await getAllOrders(params)
         
         if (res.code === '0') {
           this.recentOrders = res.data.records || []

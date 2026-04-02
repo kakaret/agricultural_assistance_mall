@@ -141,6 +141,14 @@
                   申请售后
                 </el-button>
                 <el-button
+                  v-if="order.status === 5"
+                  size="small"
+                  type="warning"
+                  @click="goToAfterSalesTab()"
+                >
+                  查看售后进度
+                </el-button>
+                <el-button
                   v-if="order.status === 0"
                   size="small"
                   type="danger"
@@ -678,6 +686,12 @@ export default {
           this.$message.error('取消失败')
         }
       }
+    },
+
+    goToAfterSalesTab() {
+      this.activeTab = 'refund'
+      this.asCurrentPage = 1
+      this.loadAfterSales()
     },
 
     async cancelOrder(order) {

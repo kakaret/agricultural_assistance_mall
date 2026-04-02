@@ -51,19 +51,10 @@
           v-if="row.status === 5"
           type="text"
           size="small"
-          style="color: #67C23A"
-          @click="handleRefundApprove(row)"
+          style="color: #E6A23C"
+          @click="$router.push('/admin/after-sales')"
         >
-          同意退款
-        </el-button>
-        <el-button
-          v-if="row.status === 5"
-          type="text"
-          size="small"
-          style="color: #F56C6C"
-          @click="handleRefundReject(row)"
-        >
-          拒绝退款
+          去售后管理处理
         </el-button>
         <el-dropdown v-if="row.status < 3" @command="(cmd) => handleStatusUpdate(row, cmd)">
           <el-button type="text" size="small">
@@ -206,6 +197,7 @@
 import DataTable from '@/components/admin/DataTable.vue'
 import { getAllOrders, updateOrderStatus, addLogistics, handleRefund } from '@/api/order'
 import { formatDate } from '@/utils/date'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'OrderManagement',
@@ -261,7 +253,11 @@ export default {
       ]
     }
   },
-  
+
+  computed: {
+    ...mapGetters('user', ['userId', 'isAdmin', 'isMerchant'])
+  },
+
   created() {
     this.loadOrders()
   },
@@ -283,6 +279,10 @@ export default {
         
         if (this.activeStatus !== 'all') {
           params.status = this.activeStatus
+        }
+
+        if (this.isMerchant && !this.isAdmin) {
+          params.merchantId = this.userId
         }
         
         const res = await getAllOrders(params)

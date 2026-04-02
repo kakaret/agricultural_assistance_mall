@@ -191,11 +191,21 @@ const router = new VueRouter({
     }
 })
 
-// Suppress duplicate navigation errors
+// Suppress duplicate navigation and redirect errors
 const originalPush = VueRouter.prototype.push
 VueRouter.prototype.push = function push(location) {
     return originalPush.call(this, location).catch(err => {
-        if (err.name !== 'NavigationDuplicated') {
+        if (err.name !== 'NavigationDuplicated' &&
+            !err.message?.includes('Redirected when going from')) {
+            throw err
+        }
+    })
+}
+const originalReplace = VueRouter.prototype.replace
+VueRouter.prototype.replace = function replace(location) {
+    return originalReplace.call(this, location).catch(err => {
+        if (err.name !== 'NavigationDuplicated' &&
+            !err.message?.includes('Redirected when going from')) {
             throw err
         }
     })
@@ -226,16 +236,12 @@ router.beforeEach((to, from, next) => {
             // Not admin or merchant, redirect to home
             next({ path: '/' })
         } else if (isMerchant && !isAdmin) {
-            // Merchant can only access after-sales management
-            const merchantAllowed = ['/admin/after-sales']
-            if (merchantAllowed.some(p => to.path.startsWith(p)) || to.path === '/admin') {
-                if (to.path === '/admin' || to.path === '/admin/dashboard') {
-                    next({ path: '/admin/after-sales' })
-                } else {
-                    next()
-                }
+            // Merchant: allowed pages = dashboard, products, categories, orders, stock, after-sales
+            const merchantBlocked = ['/admin/users', '/admin/categories', '/admin/articles', '/admin/carousels', '/admin/notices', '/admin/after-sales-arbitration']
+            if (merchantBlocked.some(p => to.path.startsWith(p))) {
+                next({ path: '/admin/dashboard' })
             } else {
-                next({ path: '/admin/after-sales' })
+                next()
             }
         } else {
             next()
@@ -243,12 +249,7 @@ router.beforeEach((to, from, next) => {
     }
     // Check if admin/merchant is trying to access customer pages
     else if (isLoggedIn && (isAdmin || isMerchant) && !to.path.startsWith('/admin') && to.path !== '/login' && to.path !== '/register') {
-        // Admin/merchant trying to access customer pages, redirect to admin
-        if (isMerchant && !isAdmin) {
-            next({ path: '/admin/after-sales' })
-        } else {
-            next({ path: '/admin/dashboard' })
-        }
+        next({ path: '/admin/dashboard' })
     }
     // Check if route requires authentication (but not admin)
     else if (to.matched.some(record => record.meta.requiresAuth)) {

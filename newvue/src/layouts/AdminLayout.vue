@@ -36,16 +36,16 @@
           <span slot="title">仪表盘</span>
         </el-menu-item>
 
-        <el-submenu v-if="isAdmin" index="product">
+        <el-submenu v-if="isAdmin || isMerchant" index="product">
           <template slot="title">
             <i class="el-icon-goods"></i>
             <span>商品管理</span>
           </template>
           <el-menu-item index="/admin/products">商品列表</el-menu-item>
-          <el-menu-item index="/admin/categories">分类管理</el-menu-item>
+          <el-menu-item v-if="isAdmin" index="/admin/categories">分类管理</el-menu-item>
         </el-submenu>
 
-        <el-menu-item v-if="isAdmin" index="/admin/orders">
+        <el-menu-item v-if="isAdmin || isMerchant" index="/admin/orders">
           <i class="el-icon-s-order"></i>
           <span slot="title">订单管理</span>
         </el-menu-item>
@@ -55,7 +55,7 @@
           <span slot="title">用户管理</span>
         </el-menu-item>
 
-        <el-menu-item v-if="isAdmin" index="/admin/stock">
+        <el-menu-item v-if="isAdmin || isMerchant" index="/admin/stock">
           <i class="el-icon-box"></i>
           <span slot="title">库存管理</span>
         </el-menu-item>

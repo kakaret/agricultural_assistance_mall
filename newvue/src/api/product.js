@@ -150,24 +150,3 @@ export function getSeasonalProducts(season, limit = 8) {
         params: { season, limit }
     })
 }
-
-/**
- * 获取产地分布统计
- */
-export function getOriginStats() {
-    return request({
-        url: '/product/origin-stats',
-        method: 'get'
-    })
-}
-
-/**
- * 按产地查询商品
- */
-export function getProductsByOrigin(origin, params) {
-    return request({
-        url: '/product/by-origin',
-        method: 'get',
-        params: { origin, ...params }
-    })
-}

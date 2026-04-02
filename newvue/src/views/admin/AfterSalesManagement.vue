@@ -47,27 +47,22 @@
           {{ formatDate(scope.row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right">
         <template slot-scope="scope">
-          <el-button size="mini" @click="viewDetail(scope.row)">详情</el-button>
-          <el-button
-            v-if="scope.row.status === 0"
-            size="mini"
-            type="success"
-            @click="openApprove(scope.row)"
-          >同意</el-button>
-          <el-button
-            v-if="scope.row.status === 0"
-            size="mini"
-            type="danger"
-            @click="openReject(scope.row)"
-          >拒绝</el-button>
-          <el-button
-            v-if="scope.row.status === 1 && scope.row.returnTrackingNo"
-            size="mini"
-            type="primary"
-            @click="handleConfirmReturn(scope.row)"
-          >确认收货</el-button>
+          <div class="action-buttons">
+            <el-button size="mini" @click="viewDetail(scope.row)">详情</el-button>
+            <template v-if="scope.row.status === 0">
+              <el-button size="mini" type="success" @click="openApprove(scope.row)">同意</el-button>
+              <el-button size="mini" type="danger" @click="openReject(scope.row)">拒绝</el-button>
+            </template>
+            <el-button
+              v-if="scope.row.status === 1 && scope.row.returnTrackingNo"
+              size="mini"
+              type="primary"
+              @click="handleConfirmReturn(scope.row)"
+            >确认收货</el-button>
+            <el-tag v-if="scope.row.status === 1 && !scope.row.returnTrackingNo" size="small" type="info">等待买家退货</el-tag>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -158,7 +153,7 @@ export default {
     }
   },
   computed: {
-    ...mapGetters('user', ['userId'])
+    ...mapGetters('user', ['userId', 'isAdmin', 'isMerchant'])
   },
   created() {
     this.loadList()
@@ -168,14 +163,19 @@ export default {
       this.loading = true
       try {
         const params = {
-          merchantId: this.userId,
           currentPage: this.currentPage,
           size: this.pageSize
+        }
+        // 商家只看自己的工单，admin看全部
+        if (this.isMerchant && !this.isAdmin) {
+          params.merchantId = this.userId
         }
         if (this.activeTab !== 'all') {
           params.status = parseInt(this.activeTab)
         }
+        console.log('售后管理查询参数:', params)
         const res = await getAfterSalesList(params)
+        console.log('售后管理返回数据:', res)
         if (res.data && res.data.records) {
           this.list = res.data.records
           this.total = res.data.total || 0
@@ -292,5 +292,11 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 </style>

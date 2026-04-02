@@ -152,6 +152,7 @@ import DataTable from '@/components/admin/DataTable.vue'
 import ImageUploader from '@/components/common/ImageUploader.vue'
 import { getProducts, createProduct, updateProduct, deleteProduct, getCategories } from '@/api/product'
 import { getImageUrl } from '@/utils/image'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'ProductManagement',
@@ -217,6 +218,7 @@ export default {
   },
   
   computed: {
+    ...mapGetters('user', ['userId', 'isAdmin', 'isMerchant']),
     dialogTitle() {
       return this.dialogMode === 'add' ? '添加商品' : '编辑商品'
     }
@@ -238,7 +240,8 @@ export default {
         const res = await getProducts({
           currentPage: this.currentPage,
           size: this.pageSize,
-          keyword: this.searchKeyword
+          keyword: this.searchKeyword,
+          ...(this.isMerchant && !this.isAdmin && { merchantId: this.userId })
         })
         
         if (res.code === '0') {

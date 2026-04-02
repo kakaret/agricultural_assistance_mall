@@ -19,8 +19,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
 
 @Service
 public class ProductService {
@@ -379,65 +377,5 @@ public class ProductService {
         });
 
         return Result.success(products);
-    }
-
-    /**
-     * 获取产地分布统计
-     */
-    public Result<?> getOriginStats() {
-        LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Product::getStatus, 1)
-               .isNotNull(Product::getPlaceOfOrigin)
-               .ne(Product::getPlaceOfOrigin, "");
-
-        List<Product> products = productMapper.selectList(wrapper);
-        Map<String, Integer> stats = new HashMap<>();
-        for (Product p : products) {
-            String origin = p.getPlaceOfOrigin();
-            if (origin != null && !origin.isEmpty()) {
-                // 提取省份名（取前2-3个字，如"山东烟台"→"山东"）
-                String province = extractProvince(origin);
-                stats.merge(province, 1, Integer::sum);
-            }
-        }
-        return Result.success(stats);
-    }
-
-    /**
-     * 按产地查询商品
-     */
-    public Result<?> getProductsByOrigin(String origin, Integer currentPage, Integer size) {
-        LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Product::getStatus, 1)
-               .like(Product::getPlaceOfOrigin, origin)
-               .orderByDesc(Product::getSalesCount);
-
-        Page<Product> page = new Page<>(currentPage, size);
-        Page<Product> result = productMapper.selectPage(page, wrapper);
-        result.getRecords().forEach(p -> {
-            p.setMerchant(userMapper.selectById(p.getMerchantId()));
-            p.setCategory(categoryMapper.selectById(p.getCategoryId()));
-        });
-        return Result.success(result);
-    }
-
-    /**
-     * 从产地字符串中提取省份名
-     */
-    private String extractProvince(String origin) {
-        // 直辖市
-        String[] municipalities = {"北京", "天津", "上海", "重庆"};
-        for (String m : municipalities) {
-            if (origin.startsWith(m)) return m;
-        }
-        // 自治区简称
-        if (origin.startsWith("内蒙古")) return "内蒙古";
-        if (origin.startsWith("广西")) return "广西";
-        if (origin.startsWith("西藏")) return "西藏";
-        if (origin.startsWith("宁夏")) return "宁夏";
-        if (origin.startsWith("新疆")) return "新疆";
-        // 普通省份取前两个字
-        if (origin.length() >= 2) return origin.substring(0, 2);
-        return origin;
     }
 } 

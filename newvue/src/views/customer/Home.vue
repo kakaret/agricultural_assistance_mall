@@ -35,30 +35,6 @@
         <el-empty v-else description="暂无当季商品" :image-size="80"></el-empty>
       </section>
 
-      <!-- Origin Map Section (产地地图) -->
-      <section class="map-section">
-        <h2 class="section-title">
-          <i class="el-icon-map-location" style="color:#409eff"></i>
-          产地分布
-        </h2>
-        <div class="origin-map-container">
-          <div ref="originMap" class="origin-map"></div>
-          <div v-if="selectedProvince" class="province-products">
-            <h3>{{ selectedProvince }} 的农产品</h3>
-            <div v-if="provinceProducts.length > 0" class="province-products-grid">
-              <div v-for="p in provinceProducts" :key="p.id" class="mini-product" @click="goToProduct(p.id)">
-                <img :src="getProductImage(p.imageUrl)" :alt="p.name" />
-                <div class="mini-info">
-                  <span class="mini-name">{{ p.name }}</span>
-                  <span class="mini-price">¥{{ p.isDiscount ? p.discountPrice : p.price }}</span>
-                </div>
-              </div>
-            </div>
-            <el-empty v-else description="暂无商品" :image-size="60"></el-empty>
-          </div>
-        </div>
-      </section>
-
       <!-- Recommended Products Section -->
       <section class="products-section">
         <div class="section-header">
@@ -107,8 +83,7 @@ import Carousel from '@/components/customer/Carousel.vue'
 import CategoryGrid from '@/components/customer/CategoryGrid.vue'
 import ProductCard from '@/components/common/ProductCard.vue'
 import Loading from '@/components/common/Loading.vue'
-import { getSeasonalProducts, getOriginStats, getProductsByOrigin } from '@/api/product'
-import { getImageUrl } from '@/utils/image'
+import { getSeasonalProducts } from '@/api/product'
 
 export default {
   name: 'Home',
@@ -145,10 +120,7 @@ export default {
       ],
       recommendedProducts: [],
       newProducts: [],
-      seasonalProducts: [],
-      originStats: {},
-      selectedProvince: null,
-      provinceProducts: []
+      seasonalProducts: []
     }
   },
   computed: {
@@ -164,14 +136,6 @@ export default {
   created() {
     this.loadData()
   },
-  mounted() {
-    // ECharts 地图在数据加载后初始化
-  },
-  beforeDestroy() {
-    if (this.mapChart) {
-      this.mapChart.dispose()
-    }
-  },
   methods: {
     ...mapActions('product', ['fetchProducts', 'fetchCategories']),
     ...mapActions('cart', ['addToCart']),
@@ -181,11 +145,9 @@ export default {
       try {
         await this.fetchCategories()
 
-        // 并行加载
-        const [recommendedResponse, seasonalRes, originRes] = await Promise.all([
+        const [recommendedResponse, seasonalRes] = await Promise.all([
           this.fetchProducts({ currentPage: 1, size: 8 }),
-          getSeasonalProducts(null, 8).catch(() => ({ data: [] })),
-          getOriginStats().catch(() => ({ data: {} }))
+          getSeasonalProducts(null, 8).catch(() => ({ data: [] }))
         ])
 
         const allProducts = recommendedResponse.data?.records || recommendedResponse.data || []
@@ -196,15 +158,8 @@ export default {
           .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
           .slice(0, 8)
 
-        // 时令推荐
         if (seasonalRes.data && Array.isArray(seasonalRes.data)) {
           this.seasonalProducts = seasonalRes.data
-        }
-
-        // 产地分布
-        if (originRes.data) {
-          this.originStats = originRes.data
-          this.$nextTick(() => this.initOriginMap())
         }
       } catch (error) {
         console.error('Failed to load home data:', error)
@@ -212,99 +167,6 @@ export default {
       } finally {
         this.loading = false
       }
-    },
-
-    async initOriginMap() {
-      // 动态引入 ECharts 和中国地图
-      const echarts = await import('echarts/core')
-      const { MapChart } = await import('echarts/charts')
-      const { TooltipComponent, VisualMapComponent, GeoComponent } = await import('echarts/components')
-      const { CanvasRenderer } = await import('echarts/renderers')
-
-      echarts.use([MapChart, TooltipComponent, VisualMapComponent, GeoComponent, CanvasRenderer])
-
-      // 加载中国地图 JSON
-      let chinaJson
-      try {
-        const res = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json')
-        chinaJson = await res.json()
-      } catch {
-        console.warn('地图数据加载失败')
-        return
-      }
-
-      echarts.registerMap('china', chinaJson)
-
-      const mapDom = this.$refs.originMap
-      if (!mapDom) return
-      this.mapChart = echarts.init(mapDom)
-
-      // 构建数据
-      const data = Object.entries(this.originStats).map(([name, value]) => ({
-        name: name.replace(/省|市|自治区|壮族|回族|维吾尔|特别行政区/g, ''),
-        value
-      }))
-
-      const maxVal = Math.max(...data.map(d => d.value), 1)
-
-      this.mapChart.setOption({
-        tooltip: {
-          trigger: 'item',
-          formatter: p => p.data ? `${p.name}<br/>商品数量：${p.data.value}` : p.name
-        },
-        visualMap: {
-          min: 0,
-          max: maxVal,
-          left: 'left',
-          top: 'bottom',
-          text: ['多', '少'],
-          inRange: { color: ['#e0f2e9', '#67c23a', '#2d8c1f'] },
-          calculable: true
-        },
-        series: [{
-          name: '产地分布',
-          type: 'map',
-          map: 'china',
-          roam: true,
-          label: { show: false },
-          emphasis: {
-            label: { show: true, fontSize: 14 },
-            itemStyle: { areaColor: '#ffd666' }
-          },
-          data
-        }]
-      })
-
-      this.mapChart.on('click', params => {
-        if (params.data && params.data.value > 0) {
-          this.loadProvinceProducts(params.name)
-        }
-      })
-
-      // 响应式
-      window.addEventListener('resize', () => this.mapChart && this.mapChart.resize())
-    },
-
-    async loadProvinceProducts(province) {
-      this.selectedProvince = province
-      try {
-        const res = await getProductsByOrigin(province, { currentPage: 1, size: 6 })
-        if (res.data && res.data.records) {
-          this.provinceProducts = res.data.records
-        } else {
-          this.provinceProducts = []
-        }
-      } catch {
-        this.provinceProducts = []
-      }
-    },
-
-    getProductImage(imageUrl) {
-      return imageUrl ? getImageUrl(imageUrl) : 'https://via.placeholder.com/80x80?text=Product'
-    },
-
-    goToProduct(id) {
-      this.$router.push(`/product/${id}`)
     },
 
     async handleAddToCart(product) {
@@ -413,88 +275,6 @@ export default {
   border: 1px solid #e1f3d8;
 }
 
-/* Origin Map Section */
-.map-section {
-  margin-bottom: 50px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.origin-map-container {
-  display: flex;
-  gap: 20px;
-}
-
-.origin-map {
-  width: 65%;
-  height: 450px;
-}
-
-.province-products {
-  flex: 1;
-  min-width: 280px;
-}
-
-.province-products h3 {
-  font-size: 16px;
-  color: #303133;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #67c23a;
-}
-
-.province-products-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.mini-product {
-  display: flex;
-  gap: 12px;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.2s;
-  border: 1px solid #ebeef5;
-}
-
-.mini-product:hover {
-  background: #f5f7fa;
-  border-color: #67c23a;
-}
-
-.mini-product img {
-  width: 60px;
-  height: 60px;
-  border-radius: 6px;
-  object-fit: cover;
-}
-
-.mini-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-}
-
-.mini-name {
-  font-size: 14px;
-  color: #303133;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 160px;
-}
-
-.mini-price {
-  font-size: 16px;
-  color: #f56c6c;
-  font-weight: bold;
-}
-
 /* Responsive */
 @media (max-width: 1200px) {
   .products-grid {
@@ -524,15 +304,6 @@ export default {
   .products-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 10px;
-  }
-
-  .origin-map-container {
-    flex-direction: column;
-  }
-
-  .origin-map {
-    width: 100%;
-    height: 300px;
   }
 
   .seasonal-section {

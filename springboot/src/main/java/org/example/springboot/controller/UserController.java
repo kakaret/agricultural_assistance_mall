@@ -40,6 +40,10 @@ public class UserController {
         return userService.login(user);
 
     }
+    @PostMapping("/logout")
+    public Result<?> logout() {
+        return Result.success();
+    }
         @PostMapping("/add")
     public Result<?> createUser(@RequestBody User user) {
         int res = userService.createUser(user);
