@@ -43,6 +43,7 @@ public class OrderService {
 
 
 
+    @Transactional
     public Result<?> createOrder(Order order) {
         try {
             // 检查商品库存
@@ -60,9 +61,11 @@ public class OrderService {
             int result = orderMapper.insert(order);
 
             if (result > 0) {
-                // 更新商品库存
+                // 下单时扣减库存（锁定库存）
+                product.setStock(product.getStock() - order.getQuantity());
+                productMapper.updateById(product);
 
-                LOGGER.info("创建订单成功，订单ID：{}", order.getId());
+                LOGGER.info("创建订单成功，订单ID：{}，已锁定库存：{}", order.getId(), order.getQuantity());
                 return Result.success(order);
             }
             return Result.error("-1", "创建订单失败");
@@ -72,6 +75,7 @@ public class OrderService {
         }
     }
 
+    @Transactional
     public Result<?> updateOrderStatus(Long id, Integer status) {
         try {
             Order order = orderMapper.selectById(id);
@@ -81,6 +85,32 @@ public class OrderService {
 
             order.setLastStatus(order.getStatus());
             order.setStatus(status);
+
+            // 如果是取消订单，释放库存
+            if (status == 4) {
+                // 只有待支付(0)和已支付(1)的订单取消时需要恢复库存
+                if (order.getLastStatus() == 0 || order.getLastStatus() == null) {
+                    // 待支付状态取消：恢复库存（下单时已扣减）
+                    Product product = productMapper.selectById(order.getProductId());
+                    if (product != null) {
+                        product.setStock(product.getStock() + order.getQuantity());
+                        productMapper.updateById(product);
+                        LOGGER.info("取消订单释放库存，订单ID：{}，恢复数量：{}", id, order.getQuantity());
+                    }
+                } else if (order.getLastStatus() == 1) {
+                    // 已支付状态取消：恢复库存 + 减少销量
+                    Product product = productMapper.selectById(order.getProductId());
+                    if (product != null) {
+                        product.setStock(product.getStock() + order.getQuantity());
+                        if (product.getSalesCount() >= order.getQuantity()) {
+                            product.setSalesCount(product.getSalesCount() - order.getQuantity());
+                        }
+                        productMapper.updateById(product);
+                        LOGGER.info("取消已支付订单，恢复库存并减少销量，订单ID：{}", id);
+                    }
+                }
+            }
+
             int result = orderMapper.updateById(order);
             if (result > 0) {
                 // 查找该订单的物流信息
@@ -113,8 +143,24 @@ public class OrderService {
         }
     }
 
+    @Transactional
     public Result<?> deleteOrder(Long id) {
         try {
+            Order order = orderMapper.selectById(id);
+            if (order == null) {
+                return Result.error("-1", "未找到订单");
+            }
+
+            // 如果订单是待支付状态(0)，删除时释放库存
+            if (order.getStatus() == 0) {
+                Product product = productMapper.selectById(order.getProductId());
+                if (product != null) {
+                    product.setStock(product.getStock() + order.getQuantity());
+                    productMapper.updateById(product);
+                    LOGGER.info("删除待支付订单，释放库存，订单ID：{}，恢复数量：{}", id, order.getQuantity());
+                }
+            }
+
             deleteRelation(id);
             int result = orderMapper.deleteById(id);
 
@@ -256,29 +302,27 @@ public class OrderService {
     }
     @Transactional
     public Result<?> payOrder(Long id){
+        Order order = orderMapper.selectById(id);
+        if (order == null) {
+            return Result.error("-1", "未找到订单");
+        }
+        if (order.getStatus() != 0) {
+            return Result.error("-1", "订单状态不允许支付");
+        }
 
-            Order order = orderMapper.selectById(id);
-            if (order == null) {
-                return Result.error("-1", "未找到订单");
-            }else{
-
-                Product product=productMapper.selectById(order.getProductId());
-                if (product!=null){
-                    if(product.getStock()<order.getQuantity()){
-                        return Result.error("-1", "库存不足");
-                    }
-                    product.setSalesCount(product.getSalesCount()+order.getQuantity());
-                    product.setStock(product.getStock()-order.getQuantity());
-                    order.setStatus(1);
-                    int res = productMapper.updateById(product);
-
-                    if(res<=0){
-                        return  Result.error("-1","支付异常");
-                    }
-                    updateOrder(order.getId(),order);
-                }
-
+        Product product = productMapper.selectById(order.getProductId());
+        if (product != null) {
+            // 库存已在下单时扣减，此处只增加销量
+            product.setSalesCount(product.getSalesCount() + order.getQuantity());
+            int res = productMapper.updateById(product);
+            if (res <= 0) {
+                return Result.error("-1", "支付异常");
             }
+        }
+
+        order.setStatus(1);
+        updateOrder(order.getId(), order);
+        LOGGER.info("订单支付成功，订单ID：{}，增加销量：{}", id, order.getQuantity());
         return Result.success();
     }
 
