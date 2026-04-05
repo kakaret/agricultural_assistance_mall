@@ -12,6 +12,6 @@ public class CacheConfig {
         return Caffeine.newBuilder()
                 .maximumSize(1000)
                 .expireAfterWrite(10, TimeUnit.MINUTES)
-                .recordStats(); // 开启统计功�?
+                .recordStats(); // 开启统计功能
     }
 }

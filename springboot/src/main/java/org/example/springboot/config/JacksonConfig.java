@@ -18,10 +18,10 @@ public class JacksonConfig {
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer jsonCustomizer() {
         return builder -> {
-            // 创建 JavaTimeModule
+            // 鍒涘缓 JavaTimeModule
             JavaTimeModule module = new JavaTimeModule();
             
-            // 配置 LocalDateTime 的序列化器和反序列化�?
+            // 閰嶇疆 LocalDateTime 鐨勫簭鍒楀寲鍣ㄥ拰鍙嶅簭鍒楀寲鍣?
             LocalDateTimeSerializer serializer = new LocalDateTimeSerializer(DateTimeFormatter.ofPattern(DATE_TIME_PATTERN));
             LocalDateTimeDeserializer deserializer = new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern(DATE_TIME_PATTERN));
             
