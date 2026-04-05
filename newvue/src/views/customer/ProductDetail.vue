@@ -204,7 +204,7 @@ export default {
         })
         await this.createOrGetSession({
           customerId: this.userInfo.id,
-          merchantId: this.product.userId,
+          merchantId: this.product.merchantId,
           productId: this.product.id
         })
         this.showChatWindow = true

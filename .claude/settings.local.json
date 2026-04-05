@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__neural-memory__nmem_stats",
+      "mcp__neural-memory__nmem_context"
+    ]
+  }
+}
