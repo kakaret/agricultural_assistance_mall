@@ -1,6 +1,6 @@
 package org.example.springboot.config;
 
-import org.example.springboot.util.JwtTokenUtils;
+import com.auth0.jwt.JWT;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -29,8 +29,9 @@ public class WebSocketAuthInterceptor implements HandshakeInterceptor {
           // 从 URL 查询参数提取 token
           String token = extractToken(query);
           if (token != null) {
-            // 验证 token
-            Long userId = JwtTokenUtils.getUserIdFromToken(token);
+            // 验证 token，从 JWT audience 中提取 userId
+            String userIdStr = JWT.decode(token).getAudience().get(0);
+            Long userId = Long.parseLong(userIdStr);
             if (userId != null) {
               attributes.put("userId", userId);
               return true;
