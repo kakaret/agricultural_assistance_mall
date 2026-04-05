@@ -235,7 +235,8 @@
         </el-descriptions>
       </div>
       <div v-else style="text-align:center;padding:40px;color:#909399">
-        暂无物流信息
+        <i class="el-icon-truck" style="font-size:48px;margin-bottom:16px;display:block"></i>
+        商家正在备货中，发货后可查看物流信息
       </div>
     </el-dialog>
 

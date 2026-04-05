@@ -136,8 +136,8 @@
         :rules="logisticsRules"
         label-width="100px"
       >
-        <el-form-item label="物流公司" prop="company">
-          <el-select v-model="logisticsForm.company" placeholder="请选择物流公司" style="width: 100%">
+        <el-form-item label="物流公司" prop="companyName">
+          <el-select v-model="logisticsForm.companyName" placeholder="请选择物流公司" style="width: 100%">
             <el-option label="顺丰速运" value="顺丰速运"></el-option>
             <el-option label="中通快递" value="中通快递"></el-option>
             <el-option label="圆通速递" value="圆通速递"></el-option>
@@ -220,11 +220,11 @@ export default {
       currentOrder: null,
       submitting: false,
       logisticsForm: {
-        company: '',
+        companyName: '',
         trackingNumber: ''
       },
       logisticsRules: {
-        company: [
+        companyName: [
           { required: true, message: '请选择物流公司', trigger: 'change' }
         ],
         trackingNumber: [
@@ -365,15 +365,18 @@ export default {
         this.submitting = true
         
         try {
-          await addLogistics(this.currentOrder.id, this.logisticsForm)
-          await updateOrderStatus(this.currentOrder.id, 2)
-          
+          const res = await addLogistics(this.currentOrder.id, this.logisticsForm)
+          if (res.code !== '0') {
+            this.$message.error(res.msg || '创建物流信息失败')
+            return
+          }
+
           this.$message.success('发货成功')
           this.logisticsDialogVisible = false
           this.loadOrders()
           
           this.logisticsForm = {
-            company: '',
+            companyName: '',
             trackingNumber: ''
           }
         } catch (error) {

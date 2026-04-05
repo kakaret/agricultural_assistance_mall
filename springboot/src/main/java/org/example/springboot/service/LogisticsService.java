@@ -44,19 +44,15 @@ public class LogisticsService {
                 return Result.error("-1", "订单状态不正确，只能为已支付订单创建物流");
             }
 
-            // 检查必填字段
+            // 检查必填字段：商家只需填快递公司和运单号
             if (logistics.getCompanyName() == null || logistics.getCompanyName().trim().isEmpty()) {
                 return Result.error("-1", "物流公司名称不能为空");
             }
-            if (logistics.getReceiverName() == null || logistics.getReceiverName().trim().isEmpty()) {
-                return Result.error("-1", "收货人姓名不能为空");
-            }
-            if (logistics.getReceiverPhone() == null || logistics.getReceiverPhone().trim().isEmpty()) {
-                return Result.error("-1", "收货人电话不能为空");
-            }
-            if (logistics.getReceiverAddress() == null || logistics.getReceiverAddress().trim().isEmpty()) {
-                return Result.error("-1", "收货地址不能为空");
-            }
+
+            // 收货人信息直接从订单获取
+            logistics.setReceiverName(order.getRecvName());
+            logistics.setReceiverPhone(order.getRecvPhone());
+            logistics.setReceiverAddress(order.getRecvAddress());
             logistics.setStatus(1);
 
             int result = logisticsMapper.insert(logistics);
