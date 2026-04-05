@@ -6,14 +6,15 @@ import {
     getUnreadCount,
     markAsRead
 } from '@/api/chat'
+import WebSocketClient from '@/utils/websocket'
 
 /**
  * 聊天 Vuex 模块
  * 
- * 状态管理 + 轮询逻辑
+ * 状态管理 + 轮询逻辑 + WebSocket 推送
  * 
  * 基于 HTTP 轮询的实现（阶段二）
- * WebSocket 推送在阶段三添加
+ * WebSocket 推送升级（阶段三）
  */
 
 const state = {
@@ -47,7 +48,12 @@ const state = {
     // 轮询控制
     pollTimer: null,
     pollInterval: 3000, // 3秒轮询一次
-    isPolling: false
+    isPolling: false,
+
+    // WebSocket 状态 (阶段三)
+    wsConnected: false,
+    onlineUsers: new Set(), // 在线用户ID集合
+    typingUsers: new Map() // { sessionId: [userId1, userId2, ...] }
 }
 
 const mutations = {
@@ -82,6 +88,10 @@ const mutations = {
     APPEND_MESSAGES(state, messages) {
         state.currentMessages.push(...messages)
     },
+    ADD_MESSAGE(state, message) {
+        // 在列表末尾添加新消息
+        state.currentMessages.push(message)
+    },
     PREPEND_MESSAGE(state, message) {
         state.currentMessages.unshift(message)
     },
@@ -109,6 +119,38 @@ const mutations = {
     },
     SET_POLL_TIMER(state, timer) {
         state.pollTimer = timer
+    },
+
+    // WebSocket 状态
+    SET_WS_CONNECTED(state, connected) {
+        state.wsConnected = connected
+    },
+    ADD_ONLINE_USER(state, userId) {
+        state.onlineUsers.add(userId)
+    },
+    REMOVE_ONLINE_USER(state, userId) {
+        state.onlineUsers.delete(userId)
+    },
+    SET_ONLINE_USERS(state, userIds) {
+        state.onlineUsers = new Set(userIds)
+    },
+    ADD_TYPING_USER(state, { sessionId, userId }) {
+        if (!state.typingUsers.has(sessionId)) {
+            state.typingUsers.set(sessionId, [])
+        }
+        const users = state.typingUsers.get(sessionId)
+        if (!users.includes(userId)) {
+            users.push(userId)
+        }
+    },
+    REMOVE_TYPING_USER(state, { sessionId, userId }) {
+        if (state.typingUsers.has(sessionId)) {
+            const users = state.typingUsers.get(sessionId)
+            const index = users.indexOf(userId)
+            if (index > -1) {
+                users.splice(index, 1)
+            }
+        }
     }
 }
 
@@ -153,7 +195,7 @@ const actions = {
             const res = await sendMessage(sessionId, senderId, senderRole, content, contentType)
             if (res.code === '0') {
                 // 消息发送成功，添加到本地消息列表
-                commit('PREPEND_MESSAGE', res.data)
+                commit('ADD_MESSAGE', res.data)
                 return res.data
             }
             throw new Error(res.msg || '发送消息失败')
@@ -293,6 +335,96 @@ const actions = {
         if (userInfo) {
             await dispatch('markSessionAsRead', { sessionId, userId: userInfo.id })
         }
+    },
+
+    /**
+     * 连接 WebSocket (阶段三)
+     */
+    connectWebSocket({ commit, dispatch }, token) {
+        return new Promise((resolve, reject) => {
+            try {
+                WebSocketClient.connect(
+                    token,
+                    // 消息回调
+                    (message) => {
+                        dispatch('_onWebSocketMessage', message)
+                    },
+                    // 连接成功回调
+                    () => {
+                        commit('SET_WS_CONNECTED', true)
+                        console.log('[Chat Store] WebSocket 连接成功')
+                        resolve()
+                    },
+                    // 连接断开回调
+                    () => {
+                        commit('SET_WS_CONNECTED', false)
+                        console.log('[Chat Store] WebSocket 连接断开')
+                    }
+                )
+            } catch (error) {
+                console.error('[Chat Store] WebSocket 连接失败:', error)
+                reject(error)
+            }
+        })
+    },
+
+    /**
+     * 断开 WebSocket 连接
+     */
+    disconnectWebSocket({ commit }) {
+        WebSocketClient.close()
+        commit('SET_WS_CONNECTED', false)
+    },
+
+    /**
+     * 处理来自 WebSocket 的消息
+     */
+    _onWebSocketMessage({ commit, state }, message) {
+        const { type, data, sessionId, userId } = message
+
+        switch (type) {
+            case 'message':
+                // 接收消息推送
+                if (state.currentSessionId === data.sessionId) {
+                    commit('ADD_MESSAGE', data)
+                }
+                break
+
+            case 'typing':
+                // 正在输入提示
+                commit('ADD_TYPING_USER', { sessionId, userId })
+                // 3秒后移除输入状态
+                setTimeout(() => {
+                    commit('REMOVE_TYPING_USER', { sessionId, userId })
+                }, 3000)
+                break
+
+            case 'online':
+                // 用户上线/下线
+                if (data.status) {
+                    commit('ADD_ONLINE_USER', userId)
+                } else {
+                    commit('REMOVE_ONLINE_USER', userId)
+                }
+                break
+
+            default:
+                console.warn('[Chat Store] 未知的 WebSocket 消息类型:', type)
+        }
+    },
+
+    /**
+     * 通过 WebSocket 发送聊天消息
+     */
+    sendWebSocketMessage({ commit }, { sessionId, content, contentType = 'TEXT' }) {
+        return WebSocketClient.sendChatMessage(sessionId, content, contentType)
+    },
+
+    /**
+     * 发送正在输入提示
+     */
+    sendTypingStatus({ commit }, sessionId) {
+        return WebSocketClient.sendTypingStatus(sessionId)
     }
 }
 
@@ -320,7 +452,23 @@ const getters = {
     isPolling: (state) => state.isPolling,
 
     // 总未读消息数
-    totalUnread: (state) => state.totalUnreadCount
+    totalUnread: (state) => state.totalUnreadCount,
+
+    // WebSocket 连接状态
+    wsConnected: (state) => state.wsConnected,
+
+    // 是否有用户正在当前会话输入
+    hasTypingUsers: (state) => {
+        if (!state.currentSessionId) return false
+        const users = state.typingUsers.get(state.currentSessionId)
+        return users && users.length > 0
+    },
+
+    // 当前会话的输入用户ID列表
+    typingUserIds: (state) => {
+        if (!state.currentSessionId) return []
+        return state.typingUsers.get(state.currentSessionId) || []
+    }
 }
 
 export default {

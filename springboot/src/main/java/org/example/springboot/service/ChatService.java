@@ -1,5 +1,6 @@
 package org.example.springboot.service;
 
+import com.alibaba.fastjson2.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.example.springboot.common.Result;
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Service;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
  * 2. 发送消息（自动触发自动回复）
  * 3. 获取消息历史
  * 4. 管理未读状态
+ * 5. WebSocket 推送（如果接收方在线）
  */
 @Service
 public class ChatService {
@@ -48,6 +52,9 @@ public class ChatService {
 
     @Autowired
     private AutoReplyRuleService autoReplyRuleService;
+
+    @Autowired(required = false)
+    private OnlineStatusManager onlineStatusManager;
 
     /**
      * 创建或获取聊天会话
@@ -116,6 +123,7 @@ public class ChatService {
      * 1. 插入消息
      * 2. 更新会话的 last_message_time
      * 3. 如果是买家消息，触发自动回复
+     * 4. 如果接收方在线，通过 WebSocket 推送
      * 
      * @param sessionId 会话ID
      * @param senderId 发送者ID
@@ -160,16 +168,55 @@ public class ChatService {
 
             LOGGER.info("发送消息成功，消息ID：{}", message.getId());
 
+            fillMessageAssociations(message);
+
             // 如果是买家消息，尝试触发自动回复
             if ("CUSTOMER".equals(senderRole)) {
                 autoReplyIfMatched(session, message);
             }
 
-            fillMessageAssociations(message);
+            // WebSocket 推送（如果接收方在线）
+            pushMessageToRecipient(session, message, senderRole);
+
             return Result.success(message);
         } catch (Exception e) {
             LOGGER.error("发送消息失败：{}", e.getMessage());
             return Result.error("-1", "发送消息失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * WebSocket 推送消息到接收方
+     */
+    private void pushMessageToRecipient(ChatSession session, ChatMessage message, String senderRole) {
+        if (onlineStatusManager == null) {
+            return;
+        }
+
+        try {
+            Long recipientId = null;
+
+            // 确定接收方
+            if ("CUSTOMER".equals(senderRole)) {
+                // 买家发送，商家接收
+                recipientId = session.getMerchantId();
+            } else if ("MERCHANT".equals(senderRole) || "SYSTEM".equals(senderRole)) {
+                // 商家或系统发送，买家接收
+                recipientId = session.getCustomerId();
+            }
+
+            if (recipientId != null && onlineStatusManager.isOnline(recipientId)) {
+                // 接收方在线，推送消息
+                Map<String, Object> pushMessage = new HashMap<>();
+                pushMessage.put("type", "message");
+                pushMessage.put("data", message);
+
+                onlineStatusManager.sendJsonToUser(recipientId, pushMessage);
+                LOGGER.info("WebSocket 消息推送成功，接收方ID：{}", recipientId);
+            }
+        } catch (Exception e) {
+            LOGGER.error("WebSocket 推送失败：{}", e.getMessage());
+            // 推送失败不影响消息发送
         }
     }
 
@@ -197,6 +244,10 @@ public class ChatService {
                     autoReplyMessage.setIsRead(0);
 
                     chatMessageMapper.insert(autoReplyMessage);
+                    
+                    // 推送自动回复消息
+                    pushMessageToRecipient(session, autoReplyMessage, "SYSTEM");
+                    
                     LOGGER.info("自动回复已发送，会话ID：{}，规则ID：{}", session.getId(), rule.getId());
                     break; // 只匹配第一条规则
                 }

@@ -12,8 +12,16 @@
     </div>
 
     <div v-else class="chat-container">
+      <!-- 在线状态指示器 -->
+      <div class="online-status">
+        <span :class="['status-indicator', wsConnected ? 'online' : 'offline']"></span>
+        <span class="status-text">
+          {{ wsConnected ? '实时连接' : '轮询模式' }}
+        </span>
+      </div>
+
       <!-- 消息列表 -->
-      <div class="messages-wrapper">
+      <div class="messages-wrapper" ref="messagesWrapper">
         <div v-if="messagesLoading" class="loading">
           <el-spinner></el-spinner>
         </div>
@@ -32,6 +40,14 @@
             </div>
           </div>
         </div>
+
+        <!-- 正在输入提示 -->
+        <div v-if="hasTypingUsers" class="typing-indicator">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-text">对方正在输入...</span>
+        </div>
       </div>
 
       <!-- 输入框 -->
@@ -42,6 +58,7 @@
           :rows="3"
           placeholder="输入消息..."
           @keyup.ctrl.enter="sendMessage"
+          @input="handleTyping"
         ></el-input>
 
         <el-button
@@ -78,13 +95,14 @@ export default {
   data() {
     return {
       inputContent: '',
-      sending: false
+      sending: false,
+      typingTimer: null
     }
   },
 
   computed: {
-    ...mapState('chat', ['currentMessages', 'messagesLoading']),
-    ...mapGetters('chat', ['currentSessionUnreadCount'])
+    ...mapState('chat', ['currentMessages', 'messagesLoading', 'wsConnected']),
+    ...mapGetters('chat', ['currentSessionUnreadCount', 'hasTypingUsers', 'typingUserIds'])
   },
 
   watch: {
@@ -101,7 +119,15 @@ export default {
   },
 
   methods: {
-    ...mapActions('chat', ['sendMessage', 'loadMessages', 'markSessionAsRead', 'startPolling', 'stopPolling']),
+    ...mapActions('chat', [
+      'sendMessage',
+      'loadMessages',
+      'markSessionAsRead',
+      'startPolling',
+      'stopPolling',
+      'connectWebSocket',
+      'sendTypingStatus'
+    ]),
 
     formatTime(timestamp) {
       if (!timestamp) return ''
@@ -121,14 +147,53 @@ export default {
       if (this.sessionId) {
         await this.loadChatMessages()
         await this.markSessionAsRead({ sessionId: this.sessionId, userId: this.$store.state.user.userInfo.id })
-        this.startPolling()
+        
+        // 优先使用 WebSocket，降级到轮询
+        if (this.$store.state.user.token) {
+          try {
+            await this.connectWebSocket(this.$store.state.user.token)
+          } catch (error) {
+            console.warn('[ChatWindow] WebSocket 连接失败，使用轮询模式')
+            this.startPolling()
+          }
+        } else {
+          this.startPolling()
+        }
       }
     },
 
     async loadChatMessages() {
       if (this.sessionId) {
         await this.loadMessages({ sessionId: this.sessionId, page: 1 })
+        // 滚动到底部
+        this.$nextTick(() => {
+          this.scrollToBottom()
+        })
       }
+    },
+
+    scrollToBottom() {
+      const wrapper = this.$refs.messagesWrapper
+      if (wrapper) {
+        wrapper.scrollTop = wrapper.scrollHeight
+      }
+    },
+
+    handleTyping() {
+      // 发送正在输入提示 (节流)
+      if (this.typingTimer) {
+        clearTimeout(this.typingTimer)
+      }
+
+      if (this.inputContent.trim()) {
+        if (this.wsConnected) {
+          this.sendTypingStatus(this.sessionId)
+        }
+      }
+
+      this.typingTimer = setTimeout(() => {
+        this.typingTimer = null
+      }, 3000)
     },
 
     async sendMessage() {
@@ -156,10 +221,7 @@ export default {
         this.inputContent = ''
         // 滚动到底部
         this.$nextTick(() => {
-          const wrapper = this.$el.querySelector('.messages-list')
-          if (wrapper) {
-            wrapper.scrollTop = wrapper.scrollHeight
-          }
+          this.scrollToBottom()
         })
       } catch (error) {
         this.$message.error('发送失败，请重试')
@@ -177,6 +239,9 @@ export default {
 
   beforeDestroy() {
     this.stopPolling()
+    if (this.typingTimer) {
+      clearTimeout(this.typingTimer)
+    }
   }
 }
 </script>
@@ -214,6 +279,38 @@ export default {
   gap: 12px;
 }
 
+.online-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #909399;
+  transition: background 0.3s ease;
+}
+
+.status-indicator.online {
+  background: #67c23a;
+}
+
+.status-indicator.offline {
+  background: #f56c6c;
+}
+
+.status-text {
+  color: #606266;
+  font-weight: 500;
+}
+
 .messages-wrapper {
   flex: 1;
   overflow-y: auto;
@@ -221,6 +318,7 @@ export default {
   border-radius: 4px;
   padding: 12px;
   background: #f5f7fa;
+  position: relative;
 }
 
 .loading {
@@ -278,6 +376,53 @@ export default {
 
 .message.received .message-time {
   text-align: left;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #909399;
+  max-width: 150px;
+}
+
+.typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #909399;
+  animation: typing-pulse 1.4s infinite;
+}
+
+.typing-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing-pulse {
+  0%, 60%, 100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+.typing-text {
+  margin-left: 4px;
 }
 
 .message-input-wrapper {
