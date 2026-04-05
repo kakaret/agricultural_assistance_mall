@@ -109,6 +109,7 @@
 
               <div class="order-actions">
                 <el-button size="small" @click="viewDetail(order)">查看详情</el-button>
+                <el-button size="small" icon="el-icon-chat-dot-square" @click="handleContactService(order)">客服</el-button>
                 <el-button
                   v-if="order.status === 0"
                   size="small"
@@ -174,6 +175,9 @@
     </div>
 
     <Footer />
+
+    <!-- Chat Window -->
+    <ChatWindow :visible="showChatWindow" @close="showChatWindow = false" />
 
     <!-- Order Detail Dialog -->
     <el-dialog
@@ -332,7 +336,7 @@
 </template>
 
 <script>
-import { mapGetters } from 'vuex'
+import { mapGetters, mapActions } from 'vuex'
 import { getOrders, cancelOrder as cancelOrderApi, payOrder, confirmOrder, getOrderLogistics } from '@/api/order'
 import { applyAfterSales, getAfterSalesList, fillReturnLogistics, appealAfterSales, cancelAfterSales } from '@/api/afterSales'
 import { getImageUrl, getPlaceholderImage } from '@/utils/image'
@@ -344,6 +348,7 @@ import Header from '@/components/common/Header.vue'
 import Footer from '@/components/common/Footer.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Loading from '@/components/common/Loading.vue'
+import ChatWindow from '@/components/ChatWindow.vue'
 
 export default {
   name: 'Order',
@@ -351,7 +356,8 @@ export default {
     Header,
     Footer,
     Pagination,
-    Loading
+    Loading,
+    ChatWindow
   },
   data() {
     return {
@@ -395,11 +401,13 @@ export default {
       appealVisible: false,
       appealSubmitting: false,
       appealReason: '',
-      appealTicketId: null
+      appealTicketId: null,
+      // 聊天窗口
+      showChatWindow: false
     }
   },
   computed: {
-    ...mapGetters('user', ['userId', 'token']),
+    ...mapGetters('user', ['userId', 'token', 'userInfo']),
     uploadHeaders() {
       return { token: getToken() }
     }
@@ -410,6 +418,8 @@ export default {
     }
   },
   methods: {
+    ...mapActions('chat', ['initChat', 'createOrGetSession']),
+    
     async loadOrders() {
       if (!this.userId) {
         this.$message.warning('请先登录')
@@ -497,6 +507,24 @@ export default {
     viewDetail(order) {
       this.currentOrder = order
       this.detailVisible = true
+    },
+
+    async handleContactService(order) {
+      try {
+        await this.initChat({
+          currentUserId: this.userInfo.id,
+          currentUserRole: 'CUSTOMER'
+        })
+        await this.createOrGetSession({
+          customerId: this.userInfo.id,
+          merchantId: order.product.userId,
+          productId: order.product.id
+        })
+        this.showChatWindow = true
+      } catch (error) {
+        console.error('Failed to open chat:', error)
+        this.$message.error('打开客服窗口失败')
+      }
     },
 
     async handlePay(order) {

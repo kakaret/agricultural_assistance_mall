@@ -165,6 +165,18 @@ const routes = [
                 name: 'AfterSalesArbitration',
                 component: () => import('@/views/admin/AfterSalesArbitration.vue'),
                 meta: { title: '售后仲裁', requiresAuth: true, requiresAdmin: true }
+            },
+            {
+                path: 'chat',
+                name: 'ChatList',
+                component: () => import('@/views/admin/ChatList.vue'),
+                meta: { title: '客服聊天', requiresAuth: true, requiresAdmin: true }
+            },
+            {
+                path: 'auto-reply',
+                name: 'AutoReplyManagement',
+                component: () => import('@/views/admin/AutoReplyManagement.vue'),
+                meta: { title: '自动回复', requiresAuth: true, requiresAdmin: true }
             }
         ]
     },
@@ -236,7 +248,7 @@ router.beforeEach((to, from, next) => {
             // Not admin or merchant, redirect to home
             next({ path: '/' })
         } else if (isMerchant && !isAdmin) {
-            // Merchant: allowed pages = dashboard, products, categories, orders, stock, after-sales
+            // Merchant: allowed pages = dashboard, products, orders, stock, after-sales, chat, auto-reply
             const merchantBlocked = ['/admin/users', '/admin/categories', '/admin/articles', '/admin/carousels', '/admin/notices', '/admin/after-sales-arbitration']
             if (merchantBlocked.some(p => to.path.startsWith(p))) {
                 next({ path: '/admin/dashboard' })
@@ -246,25 +258,20 @@ router.beforeEach((to, from, next) => {
         } else {
             next()
         }
-    }
-    // Check if admin/merchant is trying to access customer pages
-    else if (isLoggedIn && (isAdmin || isMerchant) && !to.path.startsWith('/admin') && to.path !== '/login' && to.path !== '/register') {
-        next({ path: '/admin/dashboard' })
-    }
-    // Check if route requires authentication (but not admin)
-    else if (to.matched.some(record => record.meta.requiresAuth)) {
+    } else if (to.matched.some(record => record.meta.requiresAuth)) {
+        // Check if route requires auth
         if (!isLoggedIn) {
-            // Not logged in, redirect to login
             next({
                 path: '/login',
                 query: { redirect: to.fullPath }
             })
+        } else if (isAdmin || isMerchant) {
+            // Admin/merchant trying to access customer pages, redirect to admin
+            next({ path: '/admin/dashboard' })
         } else {
             next()
         }
-    }
-    // No special requirements
-    else {
+    } else {
         next()
     }
 })

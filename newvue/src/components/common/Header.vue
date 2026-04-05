@@ -34,6 +34,12 @@
           </el-button>
         </el-badge>
 
+        <!-- Chat Messages Badge -->
+        <el-badge v-if="isLoggedIn && userRole === 'CUSTOMER'" :value="unreadChatCount" :hidden="unreadChatCount === 0" class="chat-badge">
+          <el-button icon="el-icon-chat-dot-square" @click="goToChat" title="客服消息">
+          </el-button>
+        </el-badge>
+
         <!-- User Menu -->
         <el-dropdown v-if="isLoggedIn" @command="handleCommand">
           <span class="user-info">
@@ -81,10 +87,31 @@ export default {
     }
   },
   computed: {
-    ...mapGetters('user', ['isLoggedIn', 'userInfo', 'isAdmin']),
+    ...mapGetters('user', ['isLoggedIn', 'userInfo', 'isAdmin', 'userRole']),
     ...mapGetters('cart', ['cartItemCount']),
+    ...mapGetters('chat', ['totalUnread']),
     cartCount() {
       return this.cartItemCount
+    },
+    unreadChatCount() {
+      return this.totalUnread || 0
+    }
+  },
+  mounted() {
+    // Initialize chat polling for customers to show unread count
+    if (this.isLoggedIn && this.userRole === 'CUSTOMER') {
+      this.$store.dispatch('chat/initChat', {
+        currentUserId: this.userInfo.id,
+        currentUserRole: 'CUSTOMER'
+      }).catch(err => {
+        console.error('Failed to init chat:', err)
+      })
+    }
+  },
+  beforeDestroy() {
+    // Stop polling when component is destroyed
+    if (this.isLoggedIn && this.userRole === 'CUSTOMER') {
+      this.$store.dispatch('chat/stopPolling')
     }
   },
   methods: {
@@ -114,6 +141,20 @@ export default {
       // Avoid duplicate navigation error
       if (this.$route.path !== '/cart') {
         this.$router.push('/cart')
+      }
+    },
+
+    goToChat() {
+      if (!this.isLoggedIn) {
+        this.$message.warning('请先登录')
+        this.$router.push('/login')
+        return
+      }
+      // For merchant, go to chat management page; for customer, open chat window
+      if (this.userRole === 'MERCHANT' || this.isAdmin) {
+        if (this.$route.path !== '/admin/chat') {
+          this.$router.push('/admin/chat')
+        }
       }
     },
     
@@ -159,6 +200,8 @@ export default {
     
     async handleLogout() {
       try {
+        // Stop chat polling before logout
+        this.$store.dispatch('chat/stopPolling')
         await this.logout()
         this.$message.success('退出登录成功')
         this.$router.push('/')
@@ -260,11 +303,13 @@ export default {
   flex-shrink: 0;
 }
 
-.cart-badge {
+.cart-badge,
+.chat-badge {
   margin-right: 5px;
 }
 
-.cart-badge ::v-deep .el-button {
+.cart-badge ::v-deep .el-button,
+.chat-badge ::v-deep .el-button {
   padding: 10px 20px;
 }
 

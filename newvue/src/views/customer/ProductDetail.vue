@@ -58,6 +58,7 @@
               立即购买
             </el-button>
             <el-button icon="el-icon-star-off" circle @click="handleToggleFavorite"></el-button>
+            <el-button icon="el-icon-chat-dot-square" circle @click="handleContactService"></el-button>
           </div>
         </div>
       </div>
@@ -78,6 +79,9 @@
       </div>
     </div>
     
+    <!-- Chat Window -->
+    <ChatWindow :visible="showChatWindow" @close="showChatWindow = false" />
+    
     <Footer />
   </div>
 </template>
@@ -87,6 +91,7 @@ import { mapActions, mapGetters } from 'vuex'
 import Header from '@/components/common/Header.vue'
 import Footer from '@/components/common/Footer.vue'
 import Loading from '@/components/common/Loading.vue'
+import ChatWindow from '@/components/ChatWindow.vue'
 import { getImageUrl } from '@/utils/image'
 
 export default {
@@ -94,7 +99,8 @@ export default {
   components: {
     Header,
     Footer,
-    Loading
+    Loading,
+    ChatWindow
   },
   data() {
     return {
@@ -102,11 +108,12 @@ export default {
       quantity: 1,
       activeTab: 'detail',
       loading: false,
-      defaultImage: 'https://via.placeholder.com/400x400?text=Product'
+      defaultImage: 'https://via.placeholder.com/400x400?text=Product',
+      showChatWindow: false
     }
   },
   computed: {
-    ...mapGetters('user', ['isLoggedIn'])
+    ...mapGetters('user', ['isLoggedIn', 'userInfo'])
   },
   created() {
     this.loadProduct()
@@ -114,6 +121,7 @@ export default {
   methods: {
     ...mapActions('product', ['fetchProductDetail']),
     ...mapActions('cart', ['addToCart']),
+    ...mapActions('chat', ['initChat', 'createOrGetSession']),
     
     getProductImage(imageUrl) {
       return imageUrl ? getImageUrl(imageUrl) : this.defaultImage
@@ -180,6 +188,30 @@ export default {
       }
 
       this.$message.info('收藏功能开发中')
+    },
+
+    async handleContactService() {
+      if (!this.isLoggedIn) {
+        this.$message.warning('请先登录')
+        this.$router.push('/login')
+        return
+      }
+
+      try {
+        await this.initChat({
+          currentUserId: this.userInfo.id,
+          currentUserRole: 'CUSTOMER'
+        })
+        await this.createOrGetSession({
+          customerId: this.userInfo.id,
+          merchantId: this.product.userId,
+          productId: this.product.id
+        })
+        this.showChatWindow = true
+      } catch (error) {
+        console.error('Failed to open chat:', error)
+        this.$message.error('打开客服窗口失败')
+      }
     }
   }
 }

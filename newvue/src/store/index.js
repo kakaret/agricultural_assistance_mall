@@ -4,6 +4,7 @@ import user from './modules/user'
 import cart from './modules/cart'
 import product from './modules/product'
 import loading from './modules/loading'
+import chat from './modules/chat'
 
 Vue.use(Vuex)
 
@@ -18,6 +19,7 @@ export default new Vuex.Store({
         user,
         cart,
         product,
-        loading
+        loading,
+        chat
     }
 })
