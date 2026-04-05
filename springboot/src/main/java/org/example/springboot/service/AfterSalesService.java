@@ -204,6 +204,9 @@ public class AfterSalesService {
             if (afterSales.getStatus() != 1) {
                 return Result.error("-1", "当前状态不需要填写物流");
             }
+            if (afterSales.getReturnTrackingNo() != null && !afterSales.getReturnTrackingNo().isEmpty()) {
+                return Result.error("-1", "退货物流已填写，不可重复提交");
+            }
 
             afterSales.setReturnTrackingNo(trackingNo);
             afterSales.setReturnCompany(company);

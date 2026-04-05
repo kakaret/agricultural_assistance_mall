@@ -44,7 +44,7 @@
               </div>
               <div class="order-actions">
                 <el-button
-                  v-if="ticket.status === 1"
+                  v-if="ticket.status === 1 && !ticket.returnTrackingNo"
                   size="small"
                   type="primary"
                   @click="openReturnLogistics(ticket)"
