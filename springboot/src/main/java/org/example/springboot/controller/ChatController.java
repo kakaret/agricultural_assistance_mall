@@ -138,4 +138,21 @@ public class ChatController {
         LOGGER.info("标记会话为已读，会话ID：{}，用户ID：{}", sessionId, userId);
         return chatService.markAsRead(sessionId, userId);
     }
+
+    /**
+     * 清理会话的聊天历史记录
+     * 
+     * DELETE /chat/session/{sessionId}/messages
+     * 
+     * @param sessionId 会话ID
+     * @param userId 操作者ID（用于权限校验）
+     * @return Result
+     */
+    @DeleteMapping("/session/{sessionId}/messages")
+    public Result<?> clearMessages(
+            @PathVariable Long sessionId,
+            @RequestParam Long userId) {
+        LOGGER.info("清理聊天记录，会话ID：{}，操作者ID：{}", sessionId, userId);
+        return chatService.clearMessages(sessionId, userId);
+    }
 }

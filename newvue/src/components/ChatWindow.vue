@@ -18,6 +18,13 @@
         <span class="status-text">
           {{ wsConnected ? '实时连接' : '轮询模式' }}
         </span>
+        <el-button
+          type="text"
+          size="mini"
+          icon="el-icon-delete"
+          class="clear-btn"
+          @click="handleClearMessages"
+        >清理记录</el-button>
       </div>
 
       <!-- 消息列表 -->
@@ -101,7 +108,7 @@ export default {
   },
 
   computed: {
-    ...mapState('chat', ['currentMessages', 'messagesLoading', 'wsConnected']),
+    ...mapState('chat', { messages: 'currentMessages', messagesLoading: 'messagesLoading', wsConnected: 'wsConnected' }),
     ...mapGetters('chat', ['currentSessionUnreadCount', 'hasTypingUsers', 'typingUserIds'])
   },
 
@@ -115,19 +122,26 @@ export default {
       if (val) {
         this.loadChatMessages()
       }
+    },
+    messages() {
+      this.$nextTick(() => {
+        this.scrollToBottom()
+      })
     }
   },
 
   methods: {
-    ...mapActions('chat', [
-      'sendMessage',
-      'loadMessages',
-      'markSessionAsRead',
-      'startPolling',
-      'stopPolling',
-      'connectWebSocket',
-      'sendTypingStatus'
-    ]),
+    ...mapActions('chat', {
+      initChatStore: 'initChat',
+      sendChatMessage: 'sendMessage',
+      loadMessages: 'loadMessages',
+      markSessionAsRead: 'markSessionAsRead',
+      clearSessionMessages: 'clearSessionMessages',
+      startPolling: 'startPolling',
+      stopPolling: 'stopPolling',
+      connectWebSocket: 'connectWebSocket',
+      sendTypingStatus: 'sendTypingStatus'
+    }),
 
     formatTime(timestamp) {
       if (!timestamp) return ''
@@ -145,6 +159,10 @@ export default {
 
     async initChat() {
       if (this.sessionId) {
+        // 先初始化 store 的用户信息
+        await this.initChatStore()
+        this.$store.commit('chat/SET_CURRENT_SESSION', this.sessionId)
+        
         await this.loadChatMessages()
         await this.markSessionAsRead({ sessionId: this.sessionId, userId: this.$store.state.user.userInfo.id })
         
@@ -210,7 +228,7 @@ export default {
       this.sending = true
       try {
         const userInfo = this.$store.state.user.userInfo
-        await this.sendMessage({
+        await this.sendChatMessage({
           sessionId: this.sessionId,
           senderId: userInfo.id,
           senderRole: 'CUSTOMER',
@@ -219,10 +237,10 @@ export default {
         })
 
         this.inputContent = ''
-        // 滚动到底部
-        this.$nextTick(() => {
-          this.scrollToBottom()
-        })
+        // 延迟重新加载消息，确保自动回复已入库
+        setTimeout(async () => {
+          await this.loadChatMessages()
+        }, 500)
       } catch (error) {
         this.$message.error('发送失败，请重试')
         console.error('发送消息失败:', error)
@@ -234,6 +252,22 @@ export default {
     handleClose() {
       this.stopPolling()
       this.$emit('update:visible', false)
+    },
+
+    async handleClearMessages() {
+      try {
+        await this.$confirm('确定要清理所有聊天记录吗？此操作不可撤销。', '清理记录', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        await this.clearSessionMessages()
+        this.$message.success('聊天记录已清理')
+      } catch (e) {
+        if (e !== 'cancel') {
+          this.$message.error('清理失败')
+        }
+      }
     }
   },
 
@@ -287,6 +321,16 @@ export default {
   background: #f5f7fa;
   border-radius: 4px;
   font-size: 12px;
+}
+
+.clear-btn {
+  margin-left: auto;
+  color: #909399;
+  padding: 0;
+}
+
+.clear-btn:hover {
+  color: #f56c6c;
 }
 
 .status-indicator {

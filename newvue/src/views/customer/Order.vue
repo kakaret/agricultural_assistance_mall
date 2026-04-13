@@ -177,7 +177,7 @@
     <Footer />
 
     <!-- Chat Window -->
-    <ChatWindow :visible="showChatWindow" @close="showChatWindow = false" />
+    <ChatWindow :visible.sync="showChatWindow" :session-id="chatSessionId" />
 
     <!-- Order Detail Dialog -->
     <el-dialog
@@ -404,7 +404,8 @@ export default {
       appealReason: '',
       appealTicketId: null,
       // 聊天窗口
-      showChatWindow: false
+      showChatWindow: false,
+      chatSessionId: null
     }
   },
   computed: {
@@ -516,11 +517,12 @@ export default {
           currentUserId: this.userInfo.id,
           currentUserRole: 'CUSTOMER'
         })
-        await this.createOrGetSession({
+        const session = await this.createOrGetSession({
           customerId: this.userInfo.id,
           merchantId: order.product.merchantId,
           productId: order.product.id
         })
+        this.chatSessionId = session.id
         this.showChatWindow = true
       } catch (error) {
         console.error('Failed to open chat:', error)

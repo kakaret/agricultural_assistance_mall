@@ -148,6 +148,19 @@ export const markAsRead = (sessionId, userId) => {
 }
 
 /**
+ * 清理会话聊天历史记录
+ */
+export const clearMessages = (sessionId, userId) => {
+    return request({
+        url: `/chat/session/${sessionId}/messages`,
+        method: 'delete',
+        params: {
+            userId
+        }
+    })
+}
+
+/**
  * ============== 自动回复规则 API ==============
  */
 

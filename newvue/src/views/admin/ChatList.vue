@@ -14,8 +14,7 @@
           class="search-input"
         ></el-input>
 
-        <el-loading :active="sessionsLoading" fullscreen></el-loading>
-
+        <div v-loading="sessionsLoading">
         <div v-if="filteredSessions.length === 0" class="no-data">
           <el-empty description="还没有会话"></el-empty>
         </div>
@@ -29,8 +28,8 @@
           >
             <div class="session-header">
               <div class="customer-info">
-                <div class="customer-name">{{ session.customer.name }}</div>
-                <div v-if="isCustomerOnline(session.customer.id)" class="online-status">
+                <div class="customer-name">{{ session.customer ? session.customer.name : '未知用户' }}</div>
+                <div v-if="session.customer && isCustomerOnline(session.customer.id)" class="online-status">
                   ● 在线
                 </div>
               </div>
@@ -47,6 +46,8 @@
               {{ formatTime(session.lastMessageTime || session.createdAt) }}
             </div>
           </div>
+        </div>
+
         </div>
 
         <el-pagination
@@ -68,12 +69,18 @@
           <!-- 聊天头部 -->
           <div class="chat-header">
             <div class="header-info">
-              <h3>{{ selectedSession.customer.name }}</h3>
+                            <h3>{{ selectedSession.customer ? selectedSession.customer.name : '未知用户' }}</h3>
               <p v-if="selectedSession.product" class="product-info">
                 商品：{{ selectedSession.product.name }}
               </p>
             </div>
             <div class="header-status">
+              <el-button
+                type="text"
+                size="mini"
+                icon="el-icon-delete"
+                @click="handleClearMessages"
+              >清理记录</el-button>
               <span :class="['status-indicator', wsConnected ? 'online' : 'offline']"></span>
               <span class="status-text">{{ wsConnected ? '实时连接' : '轮询模式' }}</span>
             </div>
@@ -165,14 +172,22 @@ export default {
 
     filteredSessions() {
       return this.sessions.filter(session =>
-        session.customer.name.includes(this.searchKeyword)
+        session.customer && session.customer.name && session.customer.name.includes(this.searchKeyword)
       )
     }
   },
 
-  mounted() {
-    this.initChat()
-    this.loadSessions()
+  watch: {
+    messages() {
+      this.$nextTick(() => {
+        this.scrollToBottom()
+      })
+    }
+  },
+
+  async mounted() {
+    await this.initChat()
+    await this.loadSessions()
     
     // 优先使用 WebSocket，降级到轮询
     if (this.$store.state.user.token) {
@@ -186,24 +201,26 @@ export default {
   },
 
   methods: {
-    ...mapActions('chat', [
-      'initChat',
-      'loadSessions',
-      'loadMessages',
-      'sendMessage',
-      'startPolling',
-      'stopPolling',
-      'connectWebSocket',
-      'sendTypingStatus'
-    ]),
+    ...mapActions('chat', {
+      initChat: 'initChat',
+      fetchSessions: 'loadSessions',
+      loadMessages: 'loadMessages',
+      sendChatMessage: 'sendMessage',
+      clearSessionMessages: 'clearSessionMessages',
+      startPolling: 'startPolling',
+      stopPolling: 'stopPolling',
+      connectWebSocket: 'connectWebSocket',
+      sendTypingStatus: 'sendTypingStatus'
+    }),
 
     async loadSessions() {
-      await this.loadSessions({ page: this.currentPage })
+      await this.fetchSessions({ page: this.currentPage })
     },
 
     selectSession(session) {
       this.selectedSessionId = session.id
       this.selectedSession = session
+      this.$store.commit('chat/SET_CURRENT_SESSION', session.id)
       this.loadMessages({ sessionId: session.id, page: 1 })
     },
 
@@ -215,7 +232,7 @@ export default {
 
       this.sending = true
       try {
-        await this.sendMessage({
+        await this.sendChatMessage({
           sessionId: this.selectedSession.id,
           senderId: this.userInfo.id,
           senderRole: 'MERCHANT',
@@ -224,9 +241,13 @@ export default {
         })
 
         this.inputContent = ''
-        this.$nextTick(() => {
-          this.scrollToBottom()
-        })
+        // 延迟重新加载消息
+        setTimeout(async () => {
+          await this.loadMessages({ sessionId: this.selectedSession.id, page: 1 })
+          this.$nextTick(() => {
+            this.scrollToBottom()
+          })
+        }, 500)
       } catch (error) {
         this.$message.error('发送失败，请重试')
       } finally {
@@ -310,6 +331,23 @@ export default {
     handlePageChange(page) {
       this.currentPage = page
       this.loadSessions()
+    },
+
+    async handleClearMessages() {
+      if (!this.selectedSession) return
+      try {
+        await this.$confirm('确定要清理所有聊天记录吗？此操作不可撤销。', '清理记录', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        await this.clearSessionMessages()
+        this.$message.success('聊天记录已清理')
+      } catch (e) {
+        if (e !== 'cancel') {
+          this.$message.error('清理失败')
+        }
+      }
     }
   },
 

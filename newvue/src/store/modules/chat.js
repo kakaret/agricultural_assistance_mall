@@ -4,7 +4,8 @@ import {
     getMessages,
     getSessions,
     getUnreadCount,
-    markAsRead
+    markAsRead,
+    clearMessages
 } from '@/api/chat'
 import WebSocketClient from '@/utils/websocket'
 
@@ -161,12 +162,14 @@ const actions = {
      * @param {Object} commit - Vuex commit
      * @param {Object} rootState - Vuex root state
      */
-    async initChat({ commit, rootState }) {
+    async initChat({ commit, rootState, rootGetters }) {
         const userInfo = rootState.user.userInfo
         if (userInfo && userInfo.id) {
+            const isAdmin = rootGetters['user/isAdmin']
+            const isMerchant = rootGetters['user/isMerchant']
             commit('SET_USER_INFO', {
                 userId: userInfo.id,
-                userRole: rootState.user.isAdmin ? 'MERCHANT' : 'CUSTOMER'
+                userRole: (isAdmin || isMerchant) ? 'MERCHANT' : 'CUSTOMER'
             })
         }
     },
@@ -294,6 +297,23 @@ const actions = {
     },
 
     /**
+     * 清理会话聊天历史
+     */
+    async clearSessionMessages({ commit, state }) {
+        if (!state.currentSessionId || !state.currentUserId) return
+        try {
+            const res = await clearMessages(state.currentSessionId, state.currentUserId)
+            if (res.code === '0') {
+                commit('SET_MESSAGES', [])
+            }
+            return res
+        } catch (error) {
+            console.error('清理聊天记录失败:', error)
+            throw error
+        }
+    },
+
+    /**
      * 启动轮询（消息和未读状态）
      */
     startPolling({ commit, state, dispatch }) {
@@ -301,11 +321,11 @@ const actions = {
 
         commit('SET_POLLING', true)
 
-        // 定期检查未读消息和新消息
+        // 定期检查未读消息和拉取新消息
         const timer = setInterval(() => {
             if (state.currentSessionId) {
                 dispatch('checkUnreadMessages')
-                // 可以在这里添加 loadMessages 以检查新消息
+                dispatch('loadMessages', { sessionId: state.currentSessionId, page: 1 })
             }
         }, state.pollInterval)
 

@@ -80,7 +80,7 @@
     </div>
     
     <!-- Chat Window -->
-    <ChatWindow :visible="showChatWindow" @close="showChatWindow = false" />
+    <ChatWindow :visible.sync="showChatWindow" :session-id="chatSessionId" />
     
     <Footer />
   </div>
@@ -109,7 +109,8 @@ export default {
       activeTab: 'detail',
       loading: false,
       defaultImage: 'https://via.placeholder.com/400x400?text=Product',
-      showChatWindow: false
+      showChatWindow: false,
+      chatSessionId: null
     }
   },
   computed: {
@@ -202,11 +203,12 @@ export default {
           currentUserId: this.userInfo.id,
           currentUserRole: 'CUSTOMER'
         })
-        await this.createOrGetSession({
+        const session = await this.createOrGetSession({
           customerId: this.userInfo.id,
           merchantId: this.product.merchantId,
           productId: this.product.id
         })
+        this.chatSessionId = session.id
         this.showChatWindow = true
       } catch (error) {
         console.error('Failed to open chat:', error)

@@ -132,7 +132,7 @@ public class ChatService {
      * @param contentType 消息类型（TEXT/IMAGE）
      * @return Result
      */
-    @CacheEvict(value = CHAT_CACHE, key = "'session_' + #sessionId")
+    @CacheEvict(value = CHAT_CACHE, allEntries = true)
     public Result<?> sendMessage(Long sessionId, Long senderId, String senderRole, String content, String contentType) {
         try {
             // 验证会话存在
@@ -158,6 +158,7 @@ public class ChatService {
             message.setContent(content);
             message.setContentType(contentType);
             message.setIsRead(0);
+            message.setCreatedAt(new Timestamp(System.currentTimeMillis()));
 
             chatMessageMapper.insert(message);
 
@@ -242,8 +243,10 @@ public class ChatService {
                     autoReplyMessage.setContent(rule.getReplyContent());
                     autoReplyMessage.setContentType("TEXT");
                     autoReplyMessage.setIsRead(0);
+                    autoReplyMessage.setCreatedAt(new Timestamp(System.currentTimeMillis()));
 
                     chatMessageMapper.insert(autoReplyMessage);
+                    fillMessageAssociations(autoReplyMessage);
                     
                     // 推送自动回复消息
                     pushMessageToRecipient(session, autoReplyMessage, "SYSTEM");
@@ -403,6 +406,34 @@ public class ChatService {
         } catch (Exception e) {
             LOGGER.error("标记会话为已读失败：{}", e.getMessage());
             return Result.error("-1", "标记已读失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 清理会话的聊天历史记录
+     */
+    @CacheEvict(value = CHAT_CACHE, allEntries = true)
+    public Result<?> clearMessages(Long sessionId, Long userId) {
+        try {
+            ChatSession session = chatSessionMapper.selectById(sessionId);
+            if (session == null) {
+                return Result.error("-1", "会话不存在");
+            }
+
+            // 验证操作者是会话的参与方
+            if (!session.getCustomerId().equals(userId) && !session.getMerchantId().equals(userId)) {
+                return Result.error("-1", "无权操作此会话");
+            }
+
+            LambdaQueryWrapper<ChatMessage> queryWrapper = new LambdaQueryWrapper<>();
+            queryWrapper.eq(ChatMessage::getSessionId, sessionId);
+            chatMessageMapper.delete(queryWrapper);
+
+            LOGGER.info("清理聊天记录成功，会话ID：{}，操作者ID：{}", sessionId, userId);
+            return Result.success();
+        } catch (Exception e) {
+            LOGGER.error("清理聊天记录失败：{}", e.getMessage());
+            return Result.error("-1", "清理失败：" + e.getMessage());
         }
     }
 

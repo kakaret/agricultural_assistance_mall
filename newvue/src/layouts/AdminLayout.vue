@@ -70,6 +70,15 @@
           <span slot="title">售后仲裁</span>
         </el-menu-item>
 
+        <el-submenu v-if="isAdmin || isMerchant" index="chat">
+          <template slot="title">
+            <i class="el-icon-chat-dot-round"></i>
+            <span>客服管理</span>
+          </template>
+          <el-menu-item index="/admin/chat">客服聊天</el-menu-item>
+          <el-menu-item index="/admin/auto-reply">自动回复</el-menu-item>
+        </el-submenu>
+
         <el-submenu v-if="isAdmin" index="content">
           <template slot="title">
             <i class="el-icon-document"></i>

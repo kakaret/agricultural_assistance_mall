@@ -272,7 +272,15 @@ router.beforeEach((to, from, next) => {
             next()
         }
     } else {
-        next()
+        // Public routes (no auth required)
+        // But if user is admin/merchant, redirect to admin dashboard
+        // Except for login/register/forget pages
+        const authPages = ['Login', 'Register', 'Forget']
+        if (isLoggedIn && (isAdmin || isMerchant) && !authPages.includes(to.name)) {
+            next({ path: '/admin/dashboard' })
+        } else {
+            next()
+        }
     }
 })
 
